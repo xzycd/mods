@@ -15,7 +15,7 @@ export type LastCall = {
   input: number
 }
 
-export type Totals = { cacheRead: number; prompt: number }
+export type Totals = { cacheRead: number; cacheWrite: number; input: number; output: number }
 
 declare module 'claude-code' {
   interface PluginState {
