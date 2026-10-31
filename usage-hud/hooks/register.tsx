@@ -131,7 +131,7 @@ const transcripts = async ($: EngineInterface, dir: string, depth = 0): Promise<
   for (const e of entries) {
     const path = `${dir}/${e.name}`
     if (e.kind === 'file' && e.name.endsWith('.jsonl')) found.push({ path, size: e.size, mtimeMs: e.mtimeMs })
-    else if (e.kind === 'dir' && depth < 3) found.push(...(await transcripts($, path, depth + 1)))
+    else if (e.kind === 'dir' && depth < 5) found.push(...(await transcripts($, path, depth + 1)))
   }
   return found
 }
