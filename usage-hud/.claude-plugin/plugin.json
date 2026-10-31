@@ -1,6 +1,6 @@
 {
   "name": "usage-hud",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Live band above the prompt: 5h and weekly limits left, prompt-cache countdown, cache reads, context fill and cost",
   "author": {
     "name": "Audangas"
