@@ -23,6 +23,7 @@ declare module 'claude-code' {
       snapshot: Shaped<Snapshot | null>
       lastCall: Shaped<LastCall | null>
       totals: Shaped<Totals>
+      lifetime: Shaped<Totals>
       now: number
       isHidden: boolean
       isExpanded: boolean

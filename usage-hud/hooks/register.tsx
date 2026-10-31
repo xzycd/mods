@@ -6,6 +6,7 @@ import type { LastCall, Limit, Snapshot, Totals } from '../types'
 const snapshot = atom({ plugin: 'usage-hud', key: 'snapshot' } as const, null, { shape: 'snapshot-1' })
 const lastCall = atom({ plugin: 'usage-hud', key: 'lastCall' } as const, null, { shape: 'last-1' })
 const totals = atom({ plugin: 'usage-hud', key: 'totals' } as const, { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 }, { shape: 'totals-2' })
+const lifetime = atom({ plugin: 'usage-hud', key: 'lifetime' } as const, { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 }, { shape: 'lifetime-1' })
 const now = atom({ plugin: 'usage-hud', key: 'now' } as const, 0)
 const isHidden = atom({ plugin: 'usage-hud', key: 'isHidden' } as const, false)
 const isExpanded = atom({ plugin: 'usage-hud', key: 'isExpanded' } as const, false)
@@ -35,8 +36,16 @@ const toSnapshot = (u: Pick<SessionUsage, 'context' | 'rateLimits' | 'cost'>): S
   usd: u.cost?.usd,
 })
 
-const compact = (n: number) =>
-  n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(n >= 1e5 ? 0 : 1)}k` : `${n}`
+const compact = (n: number): string =>
+  n >= 1e9 ? `${(n / 1e9).toFixed(n >= 1e10 ? 0 : 1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(n >= 1e5 ? 0 : 1)}k` : `${n}`
+
+const asTotals = (v: unknown): Totals | null => {
+  if (typeof v !== 'object' || v === null) return null
+  const o = v as Record<string, unknown>
+  const keys = ['cacheRead', 'cacheWrite', 'input', 'output'] as const
+  if (!keys.every(k => typeof o[k] === 'number' && Number.isFinite(o[k]))) return null
+  return { cacheRead: o.cacheRead as number, cacheWrite: o.cacheWrite as number, input: o.input as number, output: o.output as number }
+}
 
 const span = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000))
@@ -123,7 +132,7 @@ const strip = (items: Readout[]) => {
   }
 }
 
-const tokenBar = (t: Totals) => {
+const tokenBar = (t: Totals, label: string, name: string) => {
   const parts = [
     { key: 'R', label: 'cache read', n: t.cacheRead, color: '#6B1A1A' },
     { key: 'W', label: 'cache write', n: t.cacheWrite, color: HUD.red },
@@ -132,7 +141,7 @@ const tokenBar = (t: Totals) => {
   ]
   const total = parts.reduce((a, p) => a + p.n, 0)
   const ch = 5.5
-  const totalX = 10 + 1.5 * ch + 6 * 6.7 + 6
+  const totalX = 10 + 1.5 * ch + 8 * 6.7 + 6
   const barX = totalX + 6 * ch + 8
   const n = 40
   const gap = 1
@@ -161,8 +170,8 @@ const tokenBar = (t: Totals) => {
   const width = Math.ceil(x)
   return {
     width,
-    alt: `Session tokens ${compact(total)}: ${parts.map(p => `${p.label} ${compact(p.n)}`).join(', ')}`,
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 24" width="${width}" height="24"><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${width - 1}" height="23" rx="7" fill="${HUD.ink}" stroke="${HUD.edge}"/><rect x="10" y="10.5" width="3" height="3" fill="${HUD.red}"/><text x="${10 + 1.5 * ch}" y="15.5" fill="${HUD.mute}" letter-spacing="1.2">TOKENS</text><text x="${totalX.toFixed(1)}" y="15.5" fill="${HUD.text}" font-weight="600">${compact(total)}</text>${segs}${legend}</g></svg>`,
+    alt: `${name} tokens ${compact(total)}: ${parts.map(p => `${p.label} ${compact(p.n)}`).join(', ')}`,
+    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 24" width="${width}" height="24"><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${width - 1}" height="23" rx="7" fill="${HUD.ink}" stroke="${HUD.edge}"/><rect x="10" y="10.5" width="3" height="3" fill="${HUD.red}"/><text x="${10 + 1.5 * ch}" y="15.5" fill="${HUD.mute}" letter-spacing="1.2">${label}</text><text x="${totalX.toFixed(1)}" y="15.5" fill="${HUD.text}" font-weight="600">${compact(total)}</text>${segs}${legend}</g></svg>`,
   }
 }
 
@@ -206,6 +215,8 @@ export const register: Register = on => {
     })
     const stored = Number(await $.store.get('ttlMinutes'))
     if (stored > 0) await update($, ttlMinutes, () => stored)
+    const kept = asTotals(await $.store.get('lifetime'))
+    if (kept) await update($, lifetime, () => kept)
     await refresh($)
     await update($, now, () => Date.now())
 
@@ -229,12 +240,17 @@ export const register: Register = on => {
     const r = yield* next(e)
     if (!r.usage) return r
     const u = r.usage
-    await update($, totals, s => ({
+    const add = (s: Totals): Totals => ({
       cacheRead: s.cacheRead + u.cache_read_input_tokens,
       cacheWrite: s.cacheWrite + u.cache_creation_input_tokens,
       input: s.input + u.input_tokens,
       output: s.output + u.output_tokens,
-    }))
+    })
+    await update($, totals, add)
+    // Re-read the store each step so parallel sessions add to one running total.
+    const all = add(asTotals(await $.store.get('lifetime')) ?? (await read($, lifetime)))
+    await $.store.set('lifetime', all)
+    await update($, lifetime, () => all)
     if (e.agentId === undefined) {
       const call: LastCall = {
         at: Date.now(),
@@ -420,7 +436,8 @@ export const register: Register = on => {
       ].filter((r): r is Readout => r !== null),
     )
 
-    const tokens = tokenBar(sum)
+    const tokens = tokenBar(sum, 'SESSION', 'Session')
+    const allTokens = tokenBar(await read($, lifetime), 'LIFETIME', 'Lifetime')
 
     return (
       <Box flexDirection="column" gap={1}>
@@ -434,6 +451,7 @@ export const register: Register = on => {
           </Button>
         </Box>
         {expanded ? <Svg source={tokens.source} alt={tokens.alt} width={tokens.width} height={24} /> : null}
+        {expanded ? <Svg source={allTokens.source} alt={allTokens.alt} width={allTokens.width} height={24} /> : null}
         {expanded ? (
           <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
             <Svg source={details.source} alt="Pace and session cache details" width={details.width} height={24} />
