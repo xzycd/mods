@@ -25,7 +25,7 @@ test('a peckish Mochi can be fed and eats', async ($, on) => {
   const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
   expect(await ui.find({ type: 'Button', key: 'feed' })).toBeTruthy()
   await ui.press({ key: 'feed' })
-  expect(await petAlt(ui)).toMatch(/^Mochi, eating: /)
+  expect(await petAlt(ui)).toMatch(/^[A-Z][a-z]+, eating: /)
   expect(await ui.find({ type: 'Button', key: 'feed' })).toBeFalsy()
   await ui.unmount()
 })
