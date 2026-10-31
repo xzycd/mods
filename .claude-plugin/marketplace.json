@@ -1,0 +1,19 @@
+{
+  "name": "audangas-mods",
+  "owner": {
+    "name": "Audangas"
+  },
+  "description": "Claude Code mods for the band above the prompt: a usage HUD and a small pet",
+  "plugins": [
+    {
+      "name": "usage-hud",
+      "source": "./usage-hud",
+      "description": "Live band above the prompt: limits left, cache countdown, cache reads, context and cost"
+    },
+    {
+      "name": "pocket-pet",
+      "source": "./pocket-pet",
+      "description": "Mochi, a small pet in the band above the prompt that reacts to your session"
+    }
+  ]
+}
