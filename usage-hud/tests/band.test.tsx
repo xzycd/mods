@@ -34,6 +34,7 @@ test('the band draws limits and expands on every surface', async ($, on) => {
       await ui.press({ key: 'more' })
       expect(await ui.find({ type: 'Button', key: 'compact' })).toBeTruthy()
       expect(await ui.find({ type: 'Button', key: 'hide' })).toBeTruthy()
+      expect(JSON.stringify(await ui.find({ type: 'Box' }))).toContain('Session tokens 0')
     }
     await ui.unmount()
   }

@@ -1,6 +1,6 @@
 {
   "name": "pocket-pet",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Mochi, a small pet in the band above the prompt that reacts to your session",
   "author": { "name": "Audangas" },
   "types": "./types/index.d.ts"

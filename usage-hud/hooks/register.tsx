@@ -1,11 +1,11 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionUsage } from 'claude-code'
 
-import type { LastCall, Limit, Snapshot } from '../types'
+import type { LastCall, Limit, Snapshot, Totals } from '../types'
 
 const snapshot = atom({ plugin: 'usage-hud', key: 'snapshot' } as const, null, { shape: 'snapshot-1' })
 const lastCall = atom({ plugin: 'usage-hud', key: 'lastCall' } as const, null, { shape: 'last-1' })
-const totals = atom({ plugin: 'usage-hud', key: 'totals' } as const, { cacheRead: 0, prompt: 0 }, { shape: 'totals-1' })
+const totals = atom({ plugin: 'usage-hud', key: 'totals' } as const, { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 }, { shape: 'totals-2' })
 const now = atom({ plugin: 'usage-hud', key: 'now' } as const, 0)
 const isHidden = atom({ plugin: 'usage-hud', key: 'isHidden' } as const, false)
 const isExpanded = atom({ plugin: 'usage-hud', key: 'isExpanded' } as const, false)
@@ -123,6 +123,49 @@ const strip = (items: Readout[]) => {
   }
 }
 
+const tokenBar = (t: Totals) => {
+  const parts = [
+    { key: 'R', label: 'cache read', n: t.cacheRead, color: '#6B1A1A' },
+    { key: 'W', label: 'cache write', n: t.cacheWrite, color: HUD.red },
+    { key: 'I', label: 'input', n: t.input, color: HUD.head },
+    { key: 'O', label: 'output', n: t.output, color: HUD.text },
+  ]
+  const total = parts.reduce((a, p) => a + p.n, 0)
+  const ch = 5.5
+  const totalX = 10 + 1.5 * ch + 6 * 6.7 + 6
+  const barX = totalX + 6 * ch + 8
+  const n = 40
+  const gap = 1
+  const barW = 160
+  const w = (barW - gap * (n - 1)) / n
+  let filled = 0
+  const owner = parts.map(p => {
+    const from = filled
+    filled += total ? (p.n / total) * n : 0
+    return { ...p, from, to: filled }
+  })
+  const segs = Array.from({ length: n }, (_, i) => {
+    const mid = i + 0.5
+    const hit = owner.find(p => mid >= p.from && mid < p.to)
+    return `<rect x="${(barX + i * (w + gap)).toFixed(2)}" y="9" width="${w.toFixed(2)}" height="6" rx=".6" fill="${hit?.color ?? HUD.off}"/>`
+  }).join('')
+  let x = barX + barW + 12
+  const legend = parts
+    .map(p => {
+      const pct = total ? Math.round((p.n / total) * 100) : 0
+      const out = `<rect x="${x.toFixed(1)}" y="9" width="5" height="6" rx="1" fill="${p.color}"/><text x="${(x + 8).toFixed(1)}" y="15.5" fill="${HUD.mute}">${p.key}</text><text x="${(x + 8 + 2 * ch).toFixed(1)}" y="15.5" fill="${HUD.text}">${pct}%</text>`
+      x += 8 + (2 + `${pct}%`.length) * ch + 10
+      return out
+    })
+    .join('')
+  const width = Math.ceil(x)
+  return {
+    width,
+    alt: `Session tokens ${compact(total)}: ${parts.map(p => `${p.label} ${compact(p.n)}`).join(', ')}`,
+    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 24" width="${width}" height="24"><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${width - 1}" height="23" rx="7" fill="${HUD.ink}" stroke="${HUD.edge}"/><rect x="10" y="10.5" width="3" height="3" fill="${HUD.red}"/><text x="${10 + 1.5 * ch}" y="15.5" fill="${HUD.mute}" letter-spacing="1.2">TOKENS</text><text x="${totalX.toFixed(1)}" y="15.5" fill="${HUD.text}" font-weight="600">${compact(total)}</text>${segs}${legend}</g></svg>`,
+  }
+}
+
 const short = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000))
   const d = Math.floor(s / 86400)
@@ -184,8 +227,15 @@ export const register: Register = on => {
 
   on('turn.step', async function* ($, e, next) {
     const r = yield* next(e)
-    if (e.agentId === undefined && r.usage) {
-      const u = r.usage
+    if (!r.usage) return r
+    const u = r.usage
+    await update($, totals, s => ({
+      cacheRead: s.cacheRead + u.cache_read_input_tokens,
+      cacheWrite: s.cacheWrite + u.cache_creation_input_tokens,
+      input: s.input + u.input_tokens,
+      output: s.output + u.output_tokens,
+    }))
+    if (e.agentId === undefined) {
       const call: LastCall = {
         at: Date.now(),
         cacheRead: u.cache_read_input_tokens,
@@ -193,10 +243,6 @@ export const register: Register = on => {
         input: u.input_tokens,
       }
       await update($, lastCall, () => call)
-      await update($, totals, s => ({
-        cacheRead: s.cacheRead + call.cacheRead,
-        prompt: s.prompt + call.cacheRead + call.cacheWrite + call.input,
-      }))
       await update($, now, () => call.at)
     }
 
@@ -251,7 +297,8 @@ export const register: Register = on => {
     const isWarm = cacheLeft > 0
     const isCooling = isWarm && cacheLeft < 120e3
     const hit = call ? call.cacheRead / Math.max(1, call.cacheRead + call.cacheWrite + call.input) : 0
-    const sumHit = sum.prompt ? sum.cacheRead / sum.prompt : 0
+    const sumPrompt = sum.cacheRead + sum.cacheWrite + sum.input
+    const sumHit = sumPrompt ? sum.cacheRead / sumPrompt : 0
     const ctxPct = snap?.contextPercent ?? 0
     const isCtxHigh = ctxPct >= 80
 
@@ -373,6 +420,8 @@ export const register: Register = on => {
       ].filter((r): r is Readout => r !== null),
     )
 
+    const tokens = tokenBar(sum)
+
     return (
       <Box flexDirection="column" gap={1}>
         <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
@@ -384,6 +433,7 @@ export const register: Register = on => {
             {expanded ? '×' : '⋯'}
           </Button>
         </Box>
+        {expanded ? <Svg source={tokens.source} alt={tokens.alt} width={tokens.width} height={24} /> : null}
         {expanded ? (
           <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
             <Svg source={details.source} alt="Pace and session cache details" width={details.width} height={24} />
