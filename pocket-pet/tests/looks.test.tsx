@@ -58,7 +58,7 @@ test('/mochi reroll gives this project a new pet and stores it', async ($, on) =
     origin: { kind: 'composer' },
     presentation: { isFullscreen: false, columns: 120 },
   })
-  expect(text).toMatch(/^Meet [A-Z][a-z]+, this project’s new (cat|bunny|bear|fox|dragon)\.$/)
+  expect(text).toMatch(/^(Meet [A-Z][a-z]+, this project’s new (cat|bunny|bear|fox)|AUDA, the final boss, now rules this project)\.$/)
   expect(Object.keys(saved).filter(k => k.startsWith('look:'))).toHaveLength(1)
   expect(await petSvg(ui)).not.toEqual(before)
   expect(JSON.stringify(await ui.find({ type: 'Box' }))).not.toMatch(/\\"[a-z-]+=\\"/)
@@ -67,7 +67,7 @@ test('/mochi reroll gives this project a new pet and stores it', async ($, on) =
 
 const RUN = { origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } } as const
 
-test('/mochi evil summons a dragon with its own lines', async ($, on) => {
+test('/mochi boss summons AUDA, the final boss', async ($, on) => {
   on('ui.render', ($, e) => {
     const { Box } = $.ui.resolve(e)
     return <Box />
@@ -77,15 +77,21 @@ test('/mochi evil summons a dragon with its own lines', async ($, on) => {
   on('store.get', () => ({ value: undefined }))
   on('store.set', () => ({ value: undefined }))
   on('clock.every', () => ({ value: undefined }))
-  await $.session.start({ cwd: '/work/shop', surface: 'desktop', isInteractive: true })
+  await $.session.start({ cwd: '/work/api', surface: 'desktop', isInteractive: true })
 
-  const { text } = await $.command.run({ command: 'mochi', args: 'evil', ...RUN })
-  expect(text).toMatch(/^Meet (Ash|Cinder|Hex|Grim|Vex|Fang|Soot|Onyx), this project’s new dragon\.$/)
+  const { text } = await $.command.run({ command: 'mochi', args: 'boss', ...RUN })
+  expect(text).toBe('AUDA, the final boss, now rules this project.')
+  const again = await $.command.run({ command: 'mochi', args: 'boss', ...RUN })
+  expect(again.text).toBe('AUDA already rules this project.')
+  const stats = await $.command.run({ command: 'mochi', args: '', ...RUN })
+  expect(stats.text).toMatch(/^AUDA · final boss · level \d+ · /)
   const ui = await $.ui.mount({ ...BAND, surface: 'desktop', props: { ...BAND.props, isWorking: true } })
   const { alt, source } = await petSvg(ui)
-  expect(alt).toMatch(/^[A-Z][a-z]+, busy: /)
+  expect(alt).toMatch(/^AUDA · final boss, busy: /)
   expect(source).toContain('class="flap"')
+  expect(source).toContain('class="rage"')
   expect(source).toContain('#FF453A')
+  expect(JSON.stringify(await ui.find({ type: 'Box' }))).toContain('>BOSS<')
   await ui.unmount()
 })
 
