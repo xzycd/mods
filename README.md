@@ -4,7 +4,7 @@ Two Claude Code mods for the band above the prompt.
 
 `usage-hud` puts four small gauges above the prompt: 5-hour limit, weekly limit, prompt-cache countdown and context used. A limit gauge shows what's left and the time to reset, with a white tick where you'd be at an even pace. A gauge turns red and blinks when a limit drops under 15%, when you're on track to run out before it resets, when the cache has under two minutes left, or when context passes 80%. `⋯` opens two token bars, one for this session and one for every session since the mod was installed, each split into cache reads, cache writes, fresh input and output. Below them are pace, projected run-dry time, cache hit rate and cost, plus buttons for the cache TTL and compaction.
 
-`pocket-pet` is Mochi, a small pink cat that sits beside the gauges. While Claude works, Mochi's speech bubble cycles through shimmering verbs such as thinking… and brewing…. Mochi has thirteen moods. It gets dizzy when tools fire in a burst, startled when a tool fails, sad when a turn is stopped, happy when one finishes and proud on every fifth turn in a row or after a long one. It also gets bored after three idle minutes and falls asleep after ten, and it worries when limits or context get tight.
+`pocket-pet` is a small pet that sits beside the gauges. Each project gets its own: one of 8 colours, 4 kinds (cat, bunny, bear, fox), markings, an accessory and a name, picked from the project's folder so it stays the same every time you open it. While Claude works, Mochi's speech bubble cycles through shimmering verbs such as thinking… and brewing…. Mochi has thirteen moods. It gets dizzy when tools fire in a burst, startled when a tool fails, sad when a turn is stopped, happy when one finishes and proud on every fifth turn in a row or after a long one. It also gets bored after three idle minutes and falls asleep after ten, and it worries when limits or context get tight.
 
 Mochi levels up as it watches turns finish and gets petted. It gets hungry over about four hours. The pips in its bubble show how full it is, and a `feed` button appears when it's peckish. Click `♥` to pet it. Level, pets and hunger are kept across sessions.
 
@@ -34,7 +34,8 @@ Answer `y` to add the marketplace, then pick the user scope so the mods load in 
 
 - `/hud` hides or shows the gauges.
 - `/hud ttl 5` or `/hud ttl 60` sets the cache countdown to match your cache TTL. The default is 60 minutes.
-- `/mochi` shows Mochi's level, turns seen, pets, hunger and current streak.
+- `/mochi` shows your pet's level, turns seen, pets, hunger and current streak.
+- `/mochi reroll` gives the current project a new pet.
 
 ## Tests
 

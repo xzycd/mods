@@ -17,6 +17,8 @@ declare module 'claude-code' {
       streak: number
       fedAt: number
       now: number
+      seed: number
+      project: string
     }
   }
 }

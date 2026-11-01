@@ -25,6 +25,7 @@ test('petting counts and turns Mochi to love', async ($, on) => {
     const { Box } = $.ui.resolve(e)
     return <Box />
   })
+  on('store.get', () => ({ value: undefined }))
   on('store.set', () => ({ value: undefined }))
   on('clock.after', () => ({ value: undefined }))
   const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
@@ -32,6 +33,20 @@ test('petting counts and turns Mochi to love', async ($, on) => {
   await ui.press({ key: 'pet' })
   expect((await ui.find({ type: 'Button', key: 'pet' }))?.text).toBe('♥ 2')
   expect(String((await ui.find({ type: 'Svg' }))?.props.alt)).toMatch(/^Mochi, love: /)
+  await ui.unmount()
+})
+
+test('petting counts on from pets given in other sessions', async ($, on) => {
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+  on('store.get', (_, e) => ({ value: e.key === 'pets' ? 40 : undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('clock.after', () => ({ value: undefined }))
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  await ui.press({ key: 'pet' })
+  expect((await ui.find({ type: 'Button', key: 'pet' }))?.text).toBe('♥ 41')
   await ui.unmount()
 })
 
