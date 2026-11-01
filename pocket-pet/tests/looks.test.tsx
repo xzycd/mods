@@ -61,5 +61,6 @@ test('/mochi reroll gives this project a new pet and stores it', async ($, on) =
   expect(text).toMatch(/^Meet [A-Z][a-z]+, this project’s new (cat|bunny|bear|fox)\.$/)
   expect(Object.keys(saved).filter(k => k.startsWith('look:'))).toHaveLength(1)
   expect((await petSvg(ui)).source).not.toBe(before.source)
+  expect(JSON.stringify(await ui.find({ type: 'Box' }))).not.toMatch(/\\"[a-z-]+=\\"/)
   await ui.unmount()
 })

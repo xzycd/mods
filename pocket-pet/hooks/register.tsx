@@ -325,7 +325,7 @@ const bubble = ({ line, verbs, level, fullness, look }: Say) => {
   const body = verbs ? shimmerLines(verbs, 29, width, glow) : null
   return {
     width,
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 40" width="${width}" height="40"><defs>${body?.defs ?? ''}</defs><g font-family="${MONO}"><path d="M11.5 .5 H${width - 7.5} a7 7 0 0 1 7 7 V32.5 a7 7 0 0 1 -7 7 H11.5 a7 7 0 0 1 -7 -7 V24 L.5 20 L4.5 16 V7.5 a7 7 0 0 1 7 -7 Z" fill="#0B0B0C" stroke="#232327"/><text x="14" y="15" font-size="7.5" letter-spacing="1.3" fill="${accent}">${label}</text><text x="${levelX}" y="15"font-size="7.5" letter-spacing="1" fill="#77777D">LV${level}</text>${pips}${body ? body.texts : `<text x="14" y="29" font-size="9" fill="#F2F2F2">${escape(line ?? '')}</text>`}</g></svg>`,
+    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 40" width="${width}" height="40"><defs>${body?.defs ?? ''}</defs><g font-family="${MONO}"><path d="M11.5 .5 H${width - 7.5} a7 7 0 0 1 7 7 V32.5 a7 7 0 0 1 -7 7 H11.5 a7 7 0 0 1 -7 -7 V24 L.5 20 L4.5 16 V7.5 a7 7 0 0 1 7 -7 Z" fill="#0B0B0C" stroke="#232327"/><text x="14" y="15" font-size="7.5" letter-spacing="1.3" fill="${accent}">${label}</text><text x="${levelX}" y="15" font-size="7.5" letter-spacing="1" fill="#77777D">LV${level}</text>${pips}${body ? body.texts : `<text x="14" y="29" font-size="9" fill="#F2F2F2">${escape(line ?? '')}</text>`}</g></svg>`,
   }
 }
 
