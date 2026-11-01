@@ -1,12 +1,13 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionUsage } from 'claude-code'
 
-import type { LastCall, Limit, Snapshot, Totals } from '../types'
+import type { LastCall, Limit, Snapshot, Tallies, Totals } from '../types'
 
 const snapshot = atom({ plugin: 'usage-hud', key: 'snapshot' } as const, null, { shape: 'snapshot-1' })
 const lastCall = atom({ plugin: 'usage-hud', key: 'lastCall' } as const, null, { shape: 'last-1' })
 const totals = atom({ plugin: 'usage-hud', key: 'totals' } as const, { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 }, { shape: 'totals-2' })
-const lifetime = atom({ plugin: 'usage-hud', key: 'lifetime' } as const, { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 }, { shape: 'lifetime-1' })
+const lifetime = atom({ plugin: 'usage-hud', key: 'lifetime' } as const, { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 }, { shape: 'lifetime-2' })
+const atScan = atom({ plugin: 'usage-hud', key: 'atScan' } as const, { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 }, { shape: 'atscan-1' })
 const now = atom({ plugin: 'usage-hud', key: 'now' } as const, 0)
 const isHidden = atom({ plugin: 'usage-hud', key: 'isHidden' } as const, false)
 const isExpanded = atom({ plugin: 'usage-hud', key: 'isExpanded' } as const, false)
@@ -45,6 +46,121 @@ const asTotals = (v: unknown): Totals | null => {
   const keys = ['cacheRead', 'cacheWrite', 'input', 'output'] as const
   if (!keys.every(k => typeof o[k] === 'number' && Number.isFinite(o[k]))) return null
   return { cacheRead: o.cacheRead as number, cacheWrite: o.cacheWrite as number, input: o.input as number, output: o.output as number }
+}
+
+const ZERO: Totals = { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 }
+
+const plus = (a: Totals, b: Totals): Totals => ({
+  cacheRead: a.cacheRead + b.cacheRead,
+  cacheWrite: a.cacheWrite + b.cacheWrite,
+  input: a.input + b.input,
+  output: a.output + b.output,
+})
+
+const minus = (a: Totals, b: Totals): Totals => ({
+  cacheRead: Math.max(0, a.cacheRead - b.cacheRead),
+  cacheWrite: Math.max(0, a.cacheWrite - b.cacheWrite),
+  input: Math.max(0, a.input - b.input),
+  output: Math.max(0, a.output - b.output),
+})
+
+const asTallies = (v: unknown): Tallies => {
+  const out: Tallies = {}
+  if (typeof v !== 'object' || v === null) return out
+  for (const [path, f] of Object.entries(v as Record<string, { size?: unknown; mtimeMs?: unknown; t?: unknown }>)) {
+    const t = asTotals(f?.t)
+    if (t && typeof f.size === 'number' && typeof f.mtimeMs === 'number') out[path] = { size: f.size, mtimeMs: f.mtimeMs, t }
+  }
+  return out
+}
+
+const sumTallies = (all: Tallies) => Object.values(all).reduce((a, f) => plus(a, f.t), ZERO)
+
+type Reply = {
+  type?: string
+  message?: {
+    id?: string
+    usage?: Partial<Record<'input_tokens' | 'cache_creation_input_tokens' | 'cache_read_input_tokens' | 'output_tokens', number>>
+  }
+}
+
+// A reply with several content blocks is written once per block, each line carrying the same usage.
+const tallyLines = (text: string, seen: Set<string>, t: Totals) => {
+  for (const line of text.split('\n')) {
+    if (!line.includes('"usage":{')) continue
+    let o: Reply
+    try {
+      o = JSON.parse(line) as Reply
+    } catch {
+      continue
+    }
+    const m = o.message
+    if (o.type !== 'assistant' || !m?.usage || typeof m.id !== 'string' || seen.has(m.id)) continue
+    seen.add(m.id)
+    t.cacheRead += m.usage.cache_read_input_tokens ?? 0
+    t.cacheWrite += m.usage.cache_creation_input_tokens ?? 0
+    t.input += m.usage.input_tokens ?? 0
+    t.output += m.usage.output_tokens ?? 0
+  }
+}
+
+const READ_CAP = 4 * 1024 * 1024
+
+const tallyFile = async ($: EngineInterface, path: string, size: number): Promise<Totals> => {
+  const t = { ...ZERO }
+  const seen = new Set<string>()
+  if (size <= READ_CAP) {
+    tallyLines(await $.fs.read(path), seen, t)
+    return t
+  }
+  let rest = ''
+  for await (const piece of $.process.spawn({ argv: ['grep', '-F', '"usage":{', path] })) {
+    if (piece.stream !== 'stdout') continue
+    const text = rest + piece.text
+    const cut = text.lastIndexOf('\n')
+    tallyLines(text.slice(0, cut + 1), seen, t)
+    rest = text.slice(cut + 1)
+  }
+  tallyLines(rest, seen, t)
+  return t
+}
+
+const transcripts = async ($: EngineInterface, dir: string, depth = 0): Promise<{ path: string; size: number; mtimeMs: number }[]> => {
+  const entries = await $.fs.list(dir).catch(() => [])
+  const found: { path: string; size: number; mtimeMs: number }[] = []
+  for (const e of entries) {
+    const path = `${dir}/${e.name}`
+    if (e.kind === 'file' && e.name.endsWith('.jsonl')) found.push({ path, size: e.size, mtimeMs: e.mtimeMs })
+    else if (e.kind === 'dir' && depth < 5) found.push(...(await transcripts($, path, depth + 1)))
+  }
+  return found
+}
+
+let isScanning = false
+
+const scan = async ($: EngineInterface) => {
+  if (isScanning) return
+  isScanning = true
+  try {
+    const home = (await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE'))
+    const base = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${home}/.claude`
+    const before = await read($, totals)
+    const kept = asTallies(await $.store.get('lifetimeFiles'))
+    for (const f of await transcripts($, `${base}/projects`)) {
+      const was = kept[f.path]
+      if (was && was.size === f.size && was.mtimeMs === f.mtimeMs) continue
+      try {
+        kept[f.path] = { size: f.size, mtimeMs: f.mtimeMs, t: await tallyFile($, f.path, f.size) }
+      } catch {
+        continue
+      }
+    }
+    await $.store.set('lifetimeFiles', kept)
+    await update($, atScan, () => before)
+    await update($, lifetime, () => sumTallies(kept))
+  } finally {
+    isScanning = false
+  }
 }
 
 const span = (ms: number) => {
@@ -215,8 +331,11 @@ export const register: Register = on => {
     })
     const stored = Number(await $.store.get('ttlMinutes'))
     if (stored > 0) await update($, ttlMinutes, () => stored)
-    const kept = asTotals(await $.store.get('lifetime'))
-    if (kept) await update($, lifetime, () => kept)
+    const kept = sumTallies(asTallies(await $.store.get('lifetimeFiles')))
+    await update($, lifetime, () => kept)
+    await update($, atScan, () => ZERO)
+    void scan($).catch(() => undefined)
+    $.clock.every(600e3, () => scan($).catch(() => undefined))
     await refresh($)
     await update($, now, () => Date.now())
 
@@ -240,17 +359,14 @@ export const register: Register = on => {
     const r = yield* next(e)
     if (!r.usage) return r
     const u = r.usage
-    const add = (s: Totals): Totals => ({
-      cacheRead: s.cacheRead + u.cache_read_input_tokens,
-      cacheWrite: s.cacheWrite + u.cache_creation_input_tokens,
-      input: s.input + u.input_tokens,
-      output: s.output + u.output_tokens,
-    })
-    await update($, totals, add)
-    // Re-read the store each step so parallel sessions add to one running total.
-    const all = add(asTotals(await $.store.get('lifetime')) ?? (await read($, lifetime)))
-    await $.store.set('lifetime', all)
-    await update($, lifetime, () => all)
+    await update($, totals, s =>
+      plus(s, {
+        cacheRead: u.cache_read_input_tokens,
+        cacheWrite: u.cache_creation_input_tokens,
+        input: u.input_tokens,
+        output: u.output_tokens,
+      }),
+    )
     if (e.agentId === undefined) {
       const call: LastCall = {
         at: Date.now(),
@@ -437,7 +553,7 @@ export const register: Register = on => {
     )
 
     const tokens = tokenBar(sum, 'SESSION', 'Session')
-    const allTokens = tokenBar(await read($, lifetime), 'LIFETIME', 'Lifetime')
+    const allTokens = tokenBar(plus(await read($, lifetime), minus(sum, await read($, atScan))), 'LIFETIME', 'Lifetime')
 
     return (
       <Box flexDirection="column" gap={1}>

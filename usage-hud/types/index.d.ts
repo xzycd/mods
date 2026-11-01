@@ -17,6 +17,8 @@ export type LastCall = {
 
 export type Totals = { cacheRead: number; cacheWrite: number; input: number; output: number }
 
+export type Tallies = Record<string, { size: number; mtimeMs: number; t: Totals }>
+
 declare module 'claude-code' {
   interface PluginState {
     'usage-hud': {
@@ -24,6 +26,7 @@ declare module 'claude-code' {
       lastCall: Shaped<LastCall | null>
       totals: Shaped<Totals>
       lifetime: Shaped<Totals>
+      atScan: Shaped<Totals>
       now: number
       isHidden: boolean
       isExpanded: boolean
