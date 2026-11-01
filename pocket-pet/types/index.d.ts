@@ -19,6 +19,7 @@ declare module 'claude-code' {
       now: number
       seed: number
       project: string
+      isHidden: boolean
     }
   }
 }
