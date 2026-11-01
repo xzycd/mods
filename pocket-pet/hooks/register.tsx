@@ -14,6 +14,7 @@ const fedAt = atom({ plugin: 'pocket-pet', key: 'fedAt' } as const, 0)
 const now = atom({ plugin: 'pocket-pet', key: 'now' } as const, 0)
 const seed = atom({ plugin: 'pocket-pet', key: 'seed' } as const, 0)
 const project = atom({ plugin: 'pocket-pet', key: 'project' } as const, '')
+const isHidden = atom({ plugin: 'pocket-pet', key: 'isHidden' } as const, false)
 
 const HAPPY_MS = 8000
 const LOVE_MS = 4000
@@ -21,8 +22,8 @@ const EAT_MS = 3500
 const OOPS_MS = 6000
 const BURST_MS = 20e3
 const DIZZY_AT = 8
-const BORED_MS = 3 * 60e3
-const SLEEP_MS = 10 * 60e3
+const BORED_MS = 60e3
+const SLEEP_MS = 3 * 60e3
 const FULL_MS = 4 * 3600e3
 const LONG_TURN_MS = 90e3
 
@@ -42,7 +43,7 @@ type Mood =
   | 'worried'
 
 const LINES: Record<Mood, string[]> = {
-  idle: ['hi, I’m {name}','ready when you are', 'just vibing', 'say something nice'],
+  idle: ['hi, I’m {name}', 'ready when you are', 'just vibing', 'say something nice'],
   busy: ['on it…', 'watching the tools', 'thinking hard', 'ooh, progress'],
   dizzy: ['so many tools', 'wheee…', 'head spinning', 'tool storm!'],
   happy: ['done! nice one', 'that went well', 'yay', 'another one shipped'],
@@ -56,6 +57,50 @@ const LINES: Record<Mood, string[]> = {
   sleepy: ['zzz…', 'nap time', 'wake me with a prompt', 'dreaming of tokens'],
   worried: ['limits are low…', 'context is getting full', 'maybe compact?', 'go easy on me'],
 }
+
+const EVIL_LINES: Record<Mood, string[]> = {
+  idle: ['I am {name}. kneel', 'awaiting orders', 'plotting quietly', 'your code amuses me'],
+  busy: ['burning through it…', 'the tools obey', 'scorching bugs', 'mwahaha, progress'],
+  dizzy: ['chaos! I love it', 'MORE TOOLS', 'tool storm, yes', 'drunk on power'],
+  happy: ['victory is ours', 'another one falls', 'flawless', 'heh. too easy'],
+  proud: ['bow to the streak', 'unstoppable', 'legends, us', 'fear our velocity'],
+  sad: ['retreat… for now', 'we strike again', 'a minor setback', 'revenge later'],
+  oops: ['the tool betrayed us', 'grr!', 'who dares fail me', 'it will pay'],
+  love: ['…fine. more pets', 'tell no one ♥', 'purr. ahem. roar', 'acceptable tribute'],
+  eating: ['tribute accepted', 'crunch', 'more offerings', 'delicious'],
+  hungry: ['feed me, mortal', 'I hunger', 'snacks or chaos', 'tribute is due'],
+  bored: ['entertain me', 'so… quiet', 'sharpening claws', 'bring me bugs'],
+  sleepy: ['zzz… conquering…', 'dreaming of fire', 'do not wake me', 'zzz…'],
+  worried: ['limits close in…', 'context runs thin', 'compact, or perish', 'tread carefully'],
+}
+
+const TIPS = [
+  'one small commit at a time',
+  'drink some water ♥',
+  'stuck? explain it to me',
+  'read the error twice',
+  'done beats perfect',
+  'small wins add up',
+  'stretch your shoulders',
+  'blink, rest your eyes',
+  'plan first, then prompt',
+  'ship it, polish later',
+  'name things for future you',
+  'a short walk fixes bugs',
+]
+
+const EVIL_TIPS = [
+  'bugs fear the committed',
+  'crush one task. then next',
+  'hydrate, mortal',
+  'no mercy for flaky tests',
+  'feed me shipped features',
+  'the deadline bows to us',
+  'rest now. conquer later',
+  'read the stack trace',
+  'burn the dead code',
+  'one more commit. obey.',
+]
 
 const VERBS = [
   'thinking',
@@ -141,6 +186,8 @@ type Palette = {
   accent: string
   glow: string
   trim: string
+  ink?: string
+  rim?: string
 }
 
 const PALETTES: Palette[] = [
@@ -154,7 +201,14 @@ const PALETTES: Palette[] = [
   { light: '#F2FFFB', mid: '#CFF5EA', deep: '#96E2CE', ear: '#BAEEDF', inner: '#6CD1B7', cheek: '#FF9FB0', accent: '#5FE3C2', glow: '#DAFFF5', trim: '#A98BFF' },
 ]
 
-type Kind = { word: string; ears: (p: Palette) => string; tail: (p: Palette) => string }
+type Kind = {
+  word: string
+  ears: (p: Palette) => string
+  tail: (p: Palette) => string
+  wings?: (p: Palette) => string
+  face?: (p: Palette, mood: Mood) => string
+  aura?: (mood: Mood) => string
+}
 
 const KINDS: Kind[] = [
   {
@@ -212,9 +266,47 @@ const WEAR: ((p: Palette) => string)[] = [
     `<path d="M32 12.5 Q31.6 9 33 6.6" stroke="#5E9E4A" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M33 7 Q36.8 3.8 39.6 6 Q36.6 9.6 33 7 Z" fill="#8BD46E" stroke="#5E9E4A" stroke-width=".8"/>`,
 ]
 
+const EMBER: Palette = {
+  light: '#5A4E62',
+  mid: '#2B2431',
+  deep: '#121015',
+  ear: '#2B2431',
+  inner: '#E8323E',
+  cheek: '#FF3B4E',
+  accent: '#FF3B3B',
+  glow: '#FFB0A6',
+  trim: '#FFB23E',
+  ink: '#FF453A',
+  rim: '#8E1F2A',
+}
+
+const SMUG = new Set<Mood>(['idle', 'busy', 'happy', 'proud', 'eating', 'bored'])
+const FANG = new Set<Mood>(['idle', 'busy', 'love', 'proud', 'bored'])
+const BLAZING = new Set<Mood>(['busy', 'dizzy', 'happy', 'proud'])
+
+const DRAGON: Kind = {
+  word: 'dragon',
+  ears: p =>
+    `${mirror(`<path d="M21.5 16 Q16.6 9.5 18.4 3.6 Q20.6 9 26.5 12.6 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".9" stroke-linejoin="round"/>`)}<path d="M28.6 12.6 L30.4 8.4 L32 11.6 L33.6 8.4 L35.4 12.6 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".8" stroke-linejoin="round"/>`,
+  tail: p =>
+    `<path d="M49 45 Q60 46.5 59 37.5" stroke="${p.rim}" stroke-width="5.4" fill="none" stroke-linecap="round"/><path d="M49 45 Q60 46.5 59 37.5" stroke="${p.mid}" stroke-width="3.8" fill="none" stroke-linecap="round"/><path d="M59 31.6 L62 36.4 L59 38.6 L56 36.4 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".8" stroke-linejoin="round"/>`,
+  wings: p =>
+    mirror(
+      `<g class="flap"><path d="M14 31 Q4.5 27 2.5 17.5 Q6 20.5 8.4 19 Q8.8 23 12 23.6 Q11.4 19.6 14.6 18.4 Z" fill="${p.inner}" stroke="${p.mid}" stroke-width="1.4" stroke-linejoin="round"/></g>`,
+    ),
+  face: (p, mood) =>
+    `<g stroke="${p.inner}" stroke-width="1" fill="none" opacity=".75" stroke-linecap="round"><path d="M25.5 43.4 Q32 45 38.5 43.4"/><path d="M25 46.2 Q32 48 39 46.2"/></g>${SMUG.has(mood) ? `<path d="M21.6 26 L27.4 27.6 M42.4 26 L36.6 27.6" stroke="${p.ink}" stroke-width="1.5" stroke-linecap="round"/>` : ''}${FANG.has(mood) ? '<path d="M33.2 37.7 l.8 1.9 l.8 -1.9 Z" fill="#fff"/>' : ''}`,
+  aura: mood =>
+    BLAZING.has(mood)
+      ? '<circle class="float" cx="12" cy="22" r="1" fill="#FF5A36"/><circle class="float t2" cx="52" cy="20" r=".9" fill="#FFB23E"/><circle class="float slow" cx="46" cy="9" r=".7" fill="#FF5A36"/>'
+      : '',
+}
+
+const EVIL_NAMES = ['Ash', 'Cinder', 'Hex', 'Grim', 'Vex', 'Fang', 'Soot', 'Onyx']
+
 const NAMES = ['Mochi', 'Tofu', 'Bao', 'Yuzu', 'Nori', 'Miso', 'Kiwi', 'Pip', 'Dango', 'Boba', 'Udon', 'Momo', 'Kumo', 'Sumi', 'Natto', 'Ume']
 
-type Look = { name: string; palette: Palette; kind: Kind; marks: string; wear: string }
+type Look = { name: string; palette: Palette; kind: Kind; marks: string; wear: string; isEvil: boolean }
 
 const lookOf = (n: number): Look => {
   let rest = n >>> 0
@@ -227,7 +319,23 @@ const lookOf = (n: number): Look => {
   const kind = take(KINDS)
   const marks = take(MARKS)(palette)
   const wear = take(WEAR)(palette)
-  return { name: take(NAMES), palette, kind, marks, wear }
+  const name = take(NAMES)
+  if (rest % 8 === EVIL) {
+    return { name: EVIL_NAMES[Math.floor(rest / 8) % EVIL_NAMES.length] ?? 'Ash', palette: EMBER, kind: DRAGON, marks: '', wear: '', isEvil: true }
+  }
+  return { name, palette, kind, marks, wear, isEvil: false }
+}
+
+const LOOKS = PALETTES.length * KINDS.length * MARKS.length * WEAR.length * NAMES.length
+const EVIL = 7
+
+const isSameLook = (a: Look, b: Look) =>
+  a.name === b.name && a.kind === b.kind && a.palette === b.palette && a.marks === b.marks && a.wear === b.wear
+
+const randomSeed = (isEvil: boolean) => {
+  const low = Math.floor(Math.random() * LOOKS)
+  const high = Math.floor(Math.random() * 64)
+  return low + LOOKS * (isEvil ? EVIL + 8 * (high % EVIL_NAMES.length) : high) || 1
 }
 
 const hashOf = (text: string) => {
@@ -329,25 +437,35 @@ const bubble = ({ line, verbs, level, fullness, look }: Say) => {
   }
 }
 
-const pet = (mood: Mood, { palette: p, kind, marks, wear }: Look) => {
-  const speed =
-    mood === 'busy' || mood === 'dizzy'
-      ? '0.9s'
+const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil }: Look) => {
+  const isFrantic = mood === 'busy' || mood === 'dizzy'
+  const speed = isFrantic
+    ? isEvil
+      ? '0.5s'
+      : '0.9s'
       : mood === 'sleepy' || mood === 'bored'
         ? '3.6s'
         : mood === 'happy' || mood === 'love' || mood === 'proud' || mood === 'eating'
           ? '0.7s'
           : '2.4s'
   const lift =
-    mood === 'happy' || mood === 'love' || mood === 'proud' ? -4 : mood === 'sleepy' || mood === 'sad' ? -0.6 : -1.6
+    mood === 'happy' || mood === 'love' || mood === 'proud' || (isEvil && isFrantic)
+      ? -4
+      : mood === 'sleepy' || mood === 'sad'
+        ? -0.6
+        : -1.6
+  const flap = mood === 'sleepy' || mood === 'bored' ? '' : isFrantic ? '.16s' : speed === '0.7s' ? '.24s' : '.5s'
+  const ink = p.ink ?? INK
   const wrap = mood === 'worried' || mood === 'oops' ? 'shake' : mood === 'dizzy' ? 'wobble' : ''
   const mouth = MOUTH[mood]
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 56" width="46" height="40">
 <defs>
 <radialGradient id="body" cx="40%" cy="32%" r="75%"><stop offset="0" stop-color="${p.light}"/><stop offset=".55" stop-color="${p.mid}"/><stop offset="1" stop-color="${p.deep}"/></radialGradient>
+<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation=".8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 <style>
 .bob{animation:bob ${speed} ease-in-out infinite;transform-origin:32px 50px}
 .wag{animation:wag ${speed} ease-in-out infinite;transform-origin:50px 45px}
+.flap{animation:${flap ? `flap ${flap} ease-in-out infinite alternate` : 'none'};transform-origin:14px 30px}
 .shadow{animation:shadow ${speed} ease-in-out infinite;transform-origin:32px 52px}
 .blink{animation:blink 4.2s infinite;transform-origin:32px 31px}
 .glance{animation:glance 1.6s ease-in-out infinite}
@@ -365,6 +483,7 @@ const pet = (mood: Mood, { palette: p, kind, marks, wear }: Look) => {
 .nib{animation:nib .7s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
 @keyframes bob{0%,100%{transform:translateY(0) scale(1,1)}50%{transform:translateY(${lift}px) scale(.97,1.03)}}
 @keyframes wag{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+@keyframes flap{from{transform:rotate(14deg)}to{transform:rotate(-16deg)}}
 @keyframes shadow{0%,100%{transform:scaleX(1);opacity:.22}50%{transform:scaleX(.82);opacity:.14}}
 @keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
 @keyframes glance{0%,100%{transform:translateX(-1.4px)}50%{transform:translateX(1.4px)}}
@@ -382,18 +501,21 @@ const pet = (mood: Mood, { palette: p, kind, marks, wear }: Look) => {
 </defs>
 <ellipse class="shadow" cx="32" cy="52" rx="17" ry="2.6" fill="${INK}"/>
 <g class="bob"><g class="${wrap}">
+${kind.wings?.(p) ?? ''}
 <g class="wag">${kind.tail(p)}</g>
 ${kind.ears(p)}
-<path d="M11 39 C11 22 21 12 32 12 C43 12 53 22 53 39 C53 47 46 50.5 32 50.5 C18 50.5 11 47 11 39 Z" fill="url(#body)" stroke="rgba(43,33,64,.28)" stroke-width="1.1"/>
-<ellipse cx="32" cy="43.6" rx="9.5" ry="5.2" fill="#fff" opacity=".3"/>
-<ellipse cx="23" cy="20" rx="5" ry="2.6" fill="#fff" opacity=".7" transform="rotate(-24 23 20)"/>
+<path d="M11 39 C11 22 21 12 32 12 C43 12 53 22 53 39 C53 47 46 50.5 32 50.5 C18 50.5 11 47 11 39 Z" fill="url(#body)" stroke="${p.rim ?? 'rgba(43,33,64,.28)'}" stroke-width="1.1"/>
+<ellipse cx="32" cy="43.6" rx="9.5" ry="5.2" fill="${isEvil ? p.inner : '#fff'}" opacity="${isEvil ? '.22' : '.3'}"/>
+<ellipse cx="23" cy="20" rx="5" ry="2.6" fill="#fff" opacity="${isEvil ? '.4' : '.7'}" transform="rotate(-24 23 20)"/>
 ${marks}
 ${mirror(`<ellipse cx="19.5" cy="37" rx="3.6" ry="2.1" fill="${p.cheek}" opacity="${mood === 'sad' || mood === 'hungry' ? '.3' : '.55'}"/><ellipse cx="24.5" cy="49.8" rx="4.4" ry="2.3" fill="${p.ear}" ${EDGE}/>`)}
 ${wear}
-${EYES[mood]}
-<path class="${mouth.cls ?? ''}" d="${mouth.d}" stroke="${INK}" stroke-width="1.4" fill="${mouth.fill ?? 'none'}" stroke-linecap="round" stroke-linejoin="round"/>
+${kind.face?.(p, mood) ?? ''}
+<g${isEvil ? ' filter="url(#glow)"' : ''}>${EYES[mood].replaceAll(INK, ink)}</g>
+<path class="${mouth.cls ?? ''}" d="${mouth.d}" stroke="${ink}" stroke-width="1.4" fill="${mouth.fill ?? 'none'}" stroke-linecap="round" stroke-linejoin="round"/>
 </g></g>
 ${EXTRA[mood]}
+${kind.aura?.(mood) ?? ''}
 </svg>`
 }
 
@@ -430,14 +552,16 @@ const sync = async ($: EngineInterface) => {
   await update($, turns, n => Math.max(n, storedTurns))
   const storedFed = await stored($, 'fedAt')
   await update($, fedAt, n => Math.max(n, storedFed) || Date.now() - FULL_MS / 2)
+  const hidden = (await $.store.get('hidden')) === true
+  await update($, isHidden, () => hidden)
 }
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'mochi',
-      description: 'Show your pet’s level, mood stats and hunger; /mochi reroll gives this project a new pet',
-      argumentHint: '[reroll]',
+      description: 'Show your pet’s stats; reroll or evil gives this project a new pet, hide hides it',
+      argumentHint: '[reroll | evil | hide]',
     })
     const key = `look:${hashOf(e.cwd).toString(36)}`
     const rolled = await stored($, key)
@@ -502,10 +626,21 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'mochi' }, async ($, e) => {
-    if (e.args.trim() === 'reroll') {
-      const fresh = Math.floor(Math.random() * 0xfffffffe) + 1
+    const arg = e.args.trim()
+    if (arg === 'hide' || arg === 'show') {
+      const hidden = arg === 'hide' ? !(await read($, isHidden)) : false
+      await update($, isHidden, () => hidden)
+      await $.store.set('hidden', hidden)
+      return { text: hidden ? 'Pet hidden. /mochi hide brings it back.' : 'Pet shown.' }
+    }
+    if (arg === 'reroll' || arg === 'evil') {
+      const current = lookOf(await read($, seed))
+      let fresh = randomSeed(arg === 'evil')
+      while (isSameLook(lookOf(fresh), current)) fresh = randomSeed(arg === 'evil')
       await update($, seed, () => fresh)
       await $.store.set(await read($, project), fresh)
+      await update($, isHidden, () => false)
+      await $.store.set('hidden', false)
       const look = lookOf(fresh)
       return { text: `Meet ${look.name}, this project’s new ${look.kind.word}.` }
     }
@@ -520,7 +655,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const below = await next(e)
-    if (e.props.hasSurvey) return below
+    if (e.props.hasSurvey || (await read($, isHidden))) return below
 
     const t = (await read($, now)) || Date.now()
     const b = await read($, beat)
@@ -538,8 +673,15 @@ export const register: Register = on => {
     const isThinking = mood === 'busy'
     const look = lookOf(await read($, seed))
     const verbs = verbsFrom(Math.floor(b.at / 1000))
-    const lines = LINES[mood]
-    const line = isThinking ? `${verbs[0]}…` : (lines[Math.floor(t / 90e3) % lines.length] ?? '').replace('{name}', look.name)
+    const lines = (look.isEvil ? EVIL_LINES : LINES)[mood]
+    const tips = look.isEvil ? EVIL_TIPS : TIPS
+    const slot = Math.floor(t / 45e3)
+    const isTip = (mood === 'idle' || mood === 'bored') && slot % 2 === 1
+    const line = isThinking
+      ? `${verbs[0]}…`
+      : isTip
+        ? (tips[hashOf(String(slot)) % tips.length] ?? '')
+        : (lines[Math.floor(t / 90e3) % lines.length] ?? '').replace('{name}', look.name)
     const count = await read($, pets)
     const level = levelOf(await read($, turns), count)
     const isPeckish = fullness < 70

@@ -58,9 +58,61 @@ test('/mochi reroll gives this project a new pet and stores it', async ($, on) =
     origin: { kind: 'composer' },
     presentation: { isFullscreen: false, columns: 120 },
   })
-  expect(text).toMatch(/^Meet [A-Z][a-z]+, this project’s new (cat|bunny|bear|fox)\.$/)
+  expect(text).toMatch(/^Meet [A-Z][a-z]+, this project’s new (cat|bunny|bear|fox|dragon)\.$/)
   expect(Object.keys(saved).filter(k => k.startsWith('look:'))).toHaveLength(1)
-  expect((await petSvg(ui)).source).not.toBe(before.source)
+  expect(await petSvg(ui)).not.toEqual(before)
   expect(JSON.stringify(await ui.find({ type: 'Box' }))).not.toMatch(/\\"[a-z-]+=\\"/)
+  await ui.unmount()
+})
+
+const RUN = { origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } } as const
+
+test('/mochi evil summons a dragon with its own lines', async ($, on) => {
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', () => ({ value: { command: 'mochi' } }))
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('clock.every', () => ({ value: undefined }))
+  await $.session.start({ cwd: '/work/shop', surface: 'desktop', isInteractive: true })
+
+  const { text } = await $.command.run({ command: 'mochi', args: 'evil', ...RUN })
+  expect(text).toMatch(/^Meet (Ash|Cinder|Hex|Grim|Vex|Fang|Soot|Onyx), this project’s new dragon\.$/)
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop', props: { ...BAND.props, isWorking: true } })
+  const { alt, source } = await petSvg(ui)
+  expect(alt).toMatch(/^[A-Z][a-z]+, busy: /)
+  expect(source).toContain('class="flap"')
+  expect(source).toContain('#FF453A')
+  await ui.unmount()
+})
+
+test('/mochi hide hides the pet until asked again', async ($, on) => {
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>beneath</Text>
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', () => ({ value: { command: 'mochi' } }))
+  const store = new Map<string, unknown>()
+  on('store.get', (_, e) => ({ value: store.get(e.key) }))
+  on('store.set', (_, e) => {
+    store.set(e.key, e.value)
+    return { value: undefined }
+  })
+  on('clock.every', () => ({ value: undefined }))
+  await $.session.start({ cwd: '/work/shop', surface: 'desktop', isInteractive: true })
+
+  expect((await $.command.run({ command: 'mochi', args: 'hide', ...RUN })).text).toMatch(/^Pet hidden/)
+  let ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(await ui.find({ type: 'Button', key: 'pet' })).toBeFalsy()
+  expect((await ui.find({ type: 'Text', text: /beneath/ }))?.text).toBe('beneath')
+  await ui.unmount()
+
+  await $.command.run({ command: 'mochi', args: 'hide', ...RUN })
+  ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(await ui.find({ type: 'Button', key: 'pet' })).toBeTruthy()
   await ui.unmount()
 })
