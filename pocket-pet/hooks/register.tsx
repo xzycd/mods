@@ -59,17 +59,17 @@ const LINES: Record<Mood, string[]> = {
 }
 
 const EVIL_LINES: Record<Mood, string[]> = {
-  idle: ['I am {name}. kneel', 'awaiting orders', 'plotting quietly', 'your code amuses me'],
+  idle: ['I am {name}. kneel', 'final boss, at rest', 'plotting quietly', 'your code amuses me'],
   busy: ['burning through it…', 'the tools obey', 'scorching bugs', 'mwahaha, progress'],
   dizzy: ['chaos! I love it', 'MORE TOOLS', 'tool storm, yes', 'drunk on power'],
-  happy: ['victory is ours', 'another one falls', 'flawless', 'heh. too easy'],
+  happy: ['victory is ours', 'another one falls', 'flawless', 'boss fight won'],
   proud: ['bow to the streak', 'unstoppable', 'legends, us', 'fear our velocity'],
   sad: ['retreat… for now', 'we strike again', 'a minor setback', 'revenge later'],
   oops: ['the tool betrayed us', 'grr!', 'who dares fail me', 'it will pay'],
   love: ['…fine. more pets', 'tell no one ♥', 'purr. ahem. roar', 'acceptable tribute'],
   eating: ['tribute accepted', 'crunch', 'more offerings', 'delicious'],
   hungry: ['feed me, mortal', 'I hunger', 'snacks or chaos', 'tribute is due'],
-  bored: ['entertain me', 'so… quiet', 'sharpening claws', 'bring me bugs'],
+  bored: ['entertain me', 'so… quiet', 'sharpening claws', 'no challengers?'],
   sleepy: ['zzz… conquering…', 'dreaming of fire', 'do not wake me', 'zzz…'],
   worried: ['limits close in…', 'context runs thin', 'compact, or perish', 'tread carefully'],
 }
@@ -302,7 +302,7 @@ const DRAGON: Kind = {
       : '',
 }
 
-const EVIL_NAMES = ['Ash', 'Cinder', 'Hex', 'Grim', 'Vex', 'Fang', 'Soot', 'Onyx']
+const BOSS = 'AUDA'
 
 const NAMES = ['Mochi', 'Tofu', 'Bao', 'Yuzu', 'Nori', 'Miso', 'Kiwi', 'Pip', 'Dango', 'Boba', 'Udon', 'Momo', 'Kumo', 'Sumi', 'Natto', 'Ume']
 
@@ -321,7 +321,7 @@ const lookOf = (n: number): Look => {
   const wear = take(WEAR)(palette)
   const name = take(NAMES)
   if (rest % 8 === EVIL) {
-    return { name: EVIL_NAMES[Math.floor(rest / 8) % EVIL_NAMES.length] ?? 'Ash', palette: EMBER, kind: DRAGON, marks: '', wear: '', isEvil: true }
+    return { name: BOSS, palette: EMBER, kind: DRAGON, marks: '', wear: '', isEvil: true }
   }
   return { name, palette, kind, marks, wear, isEvil: false }
 }
@@ -335,7 +335,7 @@ const isSameLook = (a: Look, b: Look) =>
 const randomSeed = (isEvil: boolean) => {
   const low = Math.floor(Math.random() * LOOKS)
   const high = Math.floor(Math.random() * 64)
-  return low + LOOKS * (isEvil ? EVIL + 8 * (high % EVIL_NAMES.length) : high) || 1
+  return low + LOOKS * (isEvil ? EVIL + 8 * (high % 8) : high) || 1
 }
 
 const hashOf = (text: string) => {
@@ -425,7 +425,11 @@ const bubble = ({ line, verbs, level, fullness, look }: Say) => {
   const label = look.name.toUpperCase()
   const levelX = Math.round(20 + label.length * 5.8)
   const longest = verbs ? Math.max(...verbs.map(v => v.length + 1)) : (line ?? '').length
-  const width = Math.ceil(Math.max(22 + Math.max(longest, 5) * 5.4, 112))
+  const badgeX = levelX + `LV${level}`.length * 5.5 + 4
+  const width = Math.ceil(Math.max(22 + Math.max(longest, 5) * 5.4, look.isEvil ? badgeX + 25 + 40 : 112))
+  const badge = look.isEvil
+    ? `<rect x="${badgeX}" y="7.4" width="25" height="9.2" rx="2.2" fill="#2A0C10" stroke="${accent}" stroke-width=".6"/><text x="${badgeX + 3.4}" y="14.4" font-size="6" font-weight="700" letter-spacing="1" fill="${glow}">BOSS</text>`
+    : ''
   const pips = Array.from({ length: 5 }, (_, i) => {
     const isLit = fullness > i * 20 + 4
     return `<rect x="${width - 9 - (5 - i) * 4.6 + 1}" y="9" width="3.4" height="3.4" rx=".8" fill="${isLit ? accent : '#26262A'}"/>`
@@ -433,7 +437,7 @@ const bubble = ({ line, verbs, level, fullness, look }: Say) => {
   const body = verbs ? shimmerLines(verbs, 29, width, glow) : null
   return {
     width,
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 40" width="${width}" height="40"><defs>${body?.defs ?? ''}</defs><g font-family="${MONO}"><path d="M11.5 .5 H${width - 7.5} a7 7 0 0 1 7 7 V32.5 a7 7 0 0 1 -7 7 H11.5 a7 7 0 0 1 -7 -7 V24 L.5 20 L4.5 16 V7.5 a7 7 0 0 1 7 -7 Z" fill="#0B0B0C" stroke="#232327"/><text x="14" y="15" font-size="7.5" letter-spacing="1.3" fill="${accent}">${label}</text><text x="${levelX}" y="15" font-size="7.5" letter-spacing="1" fill="#77777D">LV${level}</text>${pips}${body ? body.texts : `<text x="14" y="29" font-size="9" fill="#F2F2F2">${escape(line ?? '')}</text>`}</g></svg>`,
+    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 40" width="${width}" height="40"><defs>${body?.defs ?? ''}</defs><g font-family="${MONO}"><path d="M11.5 .5 H${width - 7.5} a7 7 0 0 1 7 7 V32.5 a7 7 0 0 1 -7 7 H11.5 a7 7 0 0 1 -7 -7 V24 L.5 20 L4.5 16 V7.5 a7 7 0 0 1 7 -7 Z" fill="#0B0B0C" stroke="${look.isEvil ? '#4A1418' : '#232327'}"/><text x="14" y="15" font-size="7.5" letter-spacing="1.3" fill="${accent}">${label}</text><text x="${levelX}" y="15" font-size="7.5" letter-spacing="1" fill="#77777D">LV${level}</text>${badge}${pips}${body ? body.texts : `<text x="14" y="29" font-size="9" fill="#F2F2F2">${escape(line ?? '')}</text>`}</g></svg>`,
   }
 }
 
@@ -461,12 +465,14 @@ const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil }: Look) => {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 56" width="46" height="40">
 <defs>
 <radialGradient id="body" cx="40%" cy="32%" r="75%"><stop offset="0" stop-color="${p.light}"/><stop offset=".55" stop-color="${p.mid}"/><stop offset="1" stop-color="${p.deep}"/></radialGradient>
+<radialGradient id="rage"><stop offset="0" stop-color="${p.accent}" stop-opacity=".55"/><stop offset="1" stop-color="${p.accent}" stop-opacity="0"/></radialGradient>
 <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation=".8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 <style>
 .bob{animation:bob ${speed} ease-in-out infinite;transform-origin:32px 50px}
 .wag{animation:wag ${speed} ease-in-out infinite;transform-origin:50px 45px}
 .flap{animation:${flap ? `flap ${flap} ease-in-out infinite alternate` : 'none'};transform-origin:14px 30px}
 .shadow{animation:shadow ${speed} ease-in-out infinite;transform-origin:32px 52px}
+.rage{animation:rage ${speed} ease-in-out infinite;transform-origin:32px 36px}
 .blink{animation:blink 4.2s infinite;transform-origin:32px 31px}
 .glance{animation:glance 1.6s ease-in-out infinite}
 .twinkle{animation:twinkle 1.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
@@ -484,6 +490,7 @@ const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil }: Look) => {
 @keyframes bob{0%,100%{transform:translateY(0) scale(1,1)}50%{transform:translateY(${lift}px) scale(.97,1.03)}}
 @keyframes wag{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
 @keyframes flap{from{transform:rotate(14deg)}to{transform:rotate(-16deg)}}
+@keyframes rage{0%,100%{transform:scale(.9);opacity:${mood === 'sleepy' ? '.2' : '.5'}}50%{transform:scale(1.06);opacity:${mood === 'sleepy' ? '.3' : '.9'}}}
 @keyframes shadow{0%,100%{transform:scaleX(1);opacity:.22}50%{transform:scaleX(.82);opacity:.14}}
 @keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
 @keyframes glance{0%,100%{transform:translateX(-1.4px)}50%{transform:translateX(1.4px)}}
@@ -499,6 +506,7 @@ const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil }: Look) => {
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </defs>
+${isEvil ? '<ellipse class="rage" cx="32" cy="36" rx="30" ry="22" fill="url(#rage)"/>' : ''}
 <ellipse class="shadow" cx="32" cy="52" rx="17" ry="2.6" fill="${INK}"/>
 <g class="bob"><g class="${wrap}">
 ${kind.wings?.(p) ?? ''}
@@ -539,9 +547,11 @@ const pulse = async ($: EngineInterface, kind: Beat['kind'], ms: number) => {
 const isLow = (limits: readonly SessionRateLimit[], contextPercent: number | undefined) =>
   limits.some(l => l.percentUsed >= 85) || (contextPercent ?? 0) >= 85
 
-const cheerLevel = ($: EngineInterface, name: string, before: number, after: number) => {
-  if (after > before) $.ui.toast(`${name} reached level ${after} ✦`)
+const cheerLevel = ($: EngineInterface, look: Look, before: number, after: number) => {
+  if (after > before) $.ui.toast(look.isEvil ? `${BOSS} grows stronger · level ${after} ✦` : `${look.name} reached level ${after} ✦`)
 }
+
+const titleOf = (look: Look) => (look.isEvil ? `${BOSS} · final boss` : look.name)
 
 const stored = async ($: EngineInterface, key: string) => Number(await $.store.get(key)) || 0
 
@@ -560,8 +570,8 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'mochi',
-      description: 'Show your pet’s stats; reroll or evil gives this project a new pet, hide hides it',
-      argumentHint: '[reroll | evil | hide]',
+      description: 'Show your pet’s stats; reroll gives this project a new pet, boss summons AUDA, hide hides it',
+      argumentHint: '[reroll | boss | hide]',
     })
     const key = `look:${hashOf(e.cwd).toString(36)}`
     const rolled = await stored($, key)
@@ -612,7 +622,7 @@ export const register: Register = on => {
     const total = await update($, turns, n => Math.max(n, storedTurns) + 1)
     await $.store.set('turns', total)
     const run = await update($, streak, n => n + 1)
-    cheerLevel($, lookOf(await read($, seed)).name, before, levelOf(total, petCount))
+    cheerLevel($, lookOf(await read($, seed)), before, levelOf(total, petCount))
     await pulse($, run % 5 === 0 || e.durationMs >= LONG_TURN_MS ? 'proud' : 'done', HAPPY_MS)
 
     return next(e)
@@ -633,23 +643,25 @@ export const register: Register = on => {
       await $.store.set('hidden', hidden)
       return { text: hidden ? 'Pet hidden. /mochi hide brings it back.' : 'Pet shown.' }
     }
-    if (arg === 'reroll' || arg === 'evil') {
+    if (arg === 'reroll' || arg === 'boss' || arg === 'evil') {
+      const isBoss = arg !== 'reroll'
       const current = lookOf(await read($, seed))
-      let fresh = randomSeed(arg === 'evil')
-      while (isSameLook(lookOf(fresh), current)) fresh = randomSeed(arg === 'evil')
+      if (isBoss && current.isEvil) return { text: `${BOSS} already rules this project.` }
+      let fresh = randomSeed(isBoss)
+      while (isSameLook(lookOf(fresh), current)) fresh = randomSeed(isBoss)
       await update($, seed, () => fresh)
       await $.store.set(await read($, project), fresh)
       await update($, isHidden, () => false)
       await $.store.set('hidden', false)
       const look = lookOf(fresh)
-      return { text: `Meet ${look.name}, this project’s new ${look.kind.word}.` }
+      return { text: look.isEvil ? `${BOSS}, the final boss, now rules this project.` : `Meet ${look.name}, this project’s new ${look.kind.word}.` }
     }
     const t = Date.now()
     const petCount = await read($, pets)
     const turnCount = await read($, turns)
     const full = Math.round(fullnessOf(t, await read($, fedAt)))
     return {
-      text: `${lookOf(await read($, seed)).name} · level ${levelOf(turnCount, petCount)} · ${turnCount} turns seen · ${petCount} pets · ${full}% full · streak ${await read($, streak)}`,
+      text: `${titleOf(lookOf(await read($, seed)))} · level ${levelOf(turnCount, petCount)} · ${turnCount} turns seen · ${petCount} pets · ${full}% full · streak ${await read($, streak)}`,
     }
   })
 
@@ -690,10 +702,10 @@ export const register: Register = on => {
       const storedPets = await stored($, 'pets')
       const total = await update($, pets, n => Math.max(n, storedPets) + 1)
       await $.store.set('pets', total)
-      cheerLevel($, look.name, levelOf(await read($, turns), total - 1), levelOf(await read($, turns), total))
+      cheerLevel($, look, levelOf(await read($, turns), total - 1), levelOf(await read($, turns), total))
       await poke($)
       await pulse($, 'love', LOVE_MS)
-      if (total % 25 === 0) $.ui.toast(`${look.name} has been petted ${total} times ♥`)
+      if (total % 25 === 0) $.ui.toast(look.isEvil ? `${BOSS} has tolerated ${total} pets ♥` : `${look.name} has been petted ${total} times ♥`)
     }
 
     const onFeed = async () => {
@@ -715,7 +727,7 @@ export const register: Register = on => {
             <Text dimColor italic={isThinking}>
               {spoken}
             </Text>
-            <Text dimColor>lv{level}</Text>
+            <Text dimColor>{look.isEvil ? `lv${level} boss` : `lv${level}`}</Text>
             <Button key="pet" plain dimColor onPress={onPet}>
               {`♥ ${count}`}
             </Button>
@@ -735,7 +747,7 @@ export const register: Register = on => {
       <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
         {below}
         <Box key="mochi" flexDirection="row" alignItems="center" gap={0}>
-          <Svg source={pet(mood, look)} alt={`${look.name}, ${mood}: ${line}`} width={46} height={40} />
+          <Svg source={pet(mood, look)} alt={`${titleOf(look)}, ${mood}: ${line}`} width={46} height={40} />
           <Svg source={say.source} alt={`Level ${level}, ${Math.round(fullness)}% full. ${line}`} width={say.width} height={40} />
           <Button key="pet" plain dimColor onPress={onPet}>
             {`♥ ${count}`}

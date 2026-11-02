@@ -4,7 +4,7 @@ Two Claude Code mods for the band above the prompt.
 
 `usage-hud` puts four small gauges above the prompt: 5-hour limit, weekly limit, prompt-cache countdown and context used. A limit gauge shows what's left and the time to reset, with a white tick where you'd be at an even pace. A gauge turns red and blinks when a limit drops under 15%, when you're on track to run out before it resets, when the cache has under two minutes left, or when context passes 80%. `⋯` opens two token bars, one for this session and one for every Claude Code session on this computer, each split into cache reads, cache writes, fresh input and output. The lifetime bar is read from the session transcripts under `~/.claude/projects`; usage from other computers or from claude.ai chats isn't counted. Below the bars are pace, projected run-dry time, cache hit rate and cost, plus buttons for the cache TTL and compaction.
 
-`pocket-pet` is a small pet that sits beside the gauges. Each project gets its own: one of 8 colours, 4 kinds (cat, bunny, bear, fox), markings, an accessory and a name, picked from the project's folder so it stays the same every time you open it. About one project in eight gets an evil pet instead: a black and red baby dragon with flapping wings, glowing eyes, embers when it's busy and lines of its own. While Claude works, Mochi's speech bubble cycles through shimmering verbs such as thinking… and brewing…. Mochi has thirteen moods. It gets dizzy when tools fire in a burst, startled when a tool fails, sad when a turn is stopped, happy when one finishes and proud on every fifth turn in a row or after a long one. It also gets bored after a minute of quiet and falls asleep after three, and it worries when limits or context get tight.
+`pocket-pet` is a small pet that sits beside the gauges. Each project gets its own: one of 8 colours, 4 kinds (cat, bunny, bear, fox), markings, an accessory and a name, picked from the project's folder so it stays the same every time you open it. About one project in eight gets the final boss instead: AUDA, a black and red baby dragon with flapping wings, glowing eyes, a pulsing red aura, embers when it's busy, a BOSS badge on its bubble and lines of its own. While Claude works, Mochi's speech bubble cycles through shimmering verbs such as thinking… and brewing…. Mochi has thirteen moods. It gets dizzy when tools fire in a burst, startled when a tool fails, sad when a turn is stopped, happy when one finishes and proud on every fifth turn in a row or after a long one. It also gets bored after a minute of quiet and falls asleep after three, and it worries when limits or context get tight.
 
 Mochi levels up as it watches turns finish and gets petted. It gets hungry over about four hours. When it's idle its bubble sometimes swaps in a short tip, such as drinking water or keeping commits small. The pips in its bubble show how full it is, and a `feed` button appears when it's peckish. Click `♥` to pet it. Level, pets and hunger are kept across sessions.
 
@@ -36,7 +36,7 @@ Answer `y` to add the marketplace, then pick the user scope so the mods load in 
 - `/hud ttl 5` or `/hud ttl 60` sets the cache countdown to match your cache TTL. The default is 60 minutes.
 - `/mochi` shows your pet's level, turns seen, pets, hunger and current streak.
 - `/mochi reroll` gives the current project a new pet.
-- `/mochi evil` gives the current project an evil dragon.
+- `/mochi boss` summons AUDA to the current project.
 - `/mochi hide` hides the pet in every session, and running it again brings it back.
 
 ## Tests
