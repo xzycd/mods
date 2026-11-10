@@ -20,6 +20,7 @@ declare module 'claude-code' {
       seed: number
       project: string
       isHidden: boolean
+      theme: string
     }
   }
 }
