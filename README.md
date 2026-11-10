@@ -10,7 +10,11 @@ The cache guard holds a prompt once, puts it back in the prompt box and says why
 
 `pocket-pet` is a small pet that sits beside the gauges. Each project gets its own: one of 8 colours, 4 kinds (cat, bunny, bear, fox), markings, an accessory and a name, picked from the project's folder so it stays the same every time you open it. About one project in eight gets the final boss instead: AUDA, a black and red baby dragon with flapping wings, glowing eyes, a pulsing red aura, embers when it's busy, a BOSS badge on its bubble and lines of its own. Two rarer pets turn up in about one project in sixty-four each: NYX, a night dragon with big green slit-pupil eyes that widen and narrow with its mood, twitching ears and slow wings, and WISP, a smoke-grey striped cat with a wide grin that fades out when it's idle and leaves only the eyes and the grin. While Claude works, Mochi's speech bubble cycles through shimmering verbs such as thinking… and brewing…. Mochi has thirteen moods. It gets dizzy when tools fire in a burst, startled when a tool fails, sad when a turn is stopped, happy when one finishes and proud on every fifth turn in a row or after a long one. It also gets bored after a minute of quiet and falls asleep after three, and it worries when limits or context get tight.
 
-Mochi levels up as it watches turns finish and gets petted. It gets hungry over about four hours. When it's idle its bubble sometimes swaps in a short tip, such as drinking water or keeping commits small. The pips in its bubble show how full it is, and a `feed` button appears when it's peckish. Click `♥` to pet it. Level, pets and hunger are kept across sessions.
+On the desktop app the pet notices the pointer. When the pointer comes within about 20 pixels, the pet stops, follows it with its eyes and leans that way, with its ears up and its tail lifted. Each kind has a move of its own: the cat wags faster, the bunny stretches its ears, the bear wiggles them, the fox flicks its tail, AUDA beats its wings, NYX's pupils go wide and WISP fades back in with a wider grin. Rest the pointer on its face and it squints. Press on it and it squashes and lets off a few hearts. When it's idle, bored or hungry it walks across its yard every so often. The press is drawn only, because the app gives a mod no click on a drawing, so `♥` is still what counts a pet.
+
+Mochi levels up as it watches turns finish and gets petted. It gets hungry over about four hours. When it's idle its bubble sometimes swaps in a short tip, such as drinking water or keeping commits small. The pips in its bubble show how full it is, and a `feed` button appears when it's peckish. Click `♥` to pet it. Level, pets, hunger, the streak and the bubble theme are kept across sessions, and the counts show as soon as a session opens.
+
+The bubble is black, with a thin bar along the bottom for progress to the next level. When Mochi is idle its lines also mention the time of day, the streak, and how many hearts or xp the next level needs.
 
 Both draw as SVG on the desktop app and fall back to plain text in the terminal.
 
@@ -40,7 +44,8 @@ Answer `y` to add the marketplace, then pick the user scope so the mods load in 
 - `/hud guard on` or `/hud guard off` turns the cache guard on or off. It starts on.
 - `/hud theme` cycles the colours: ember, ice, mint, gold, violet, mono. `/hud theme ice` picks one.
 - `/hud ttl 5` or `/hud ttl 60` fixes the cache countdown; `/hud ttl auto`, the default, follows the session.
-- `/mochi` shows your pet's level, turns seen, pets, hunger and current streak.
+- `/mochi` draws a card with your pet, its level and xp bar, turns seen, hearts, streak and hunger.
+- `/mochi theme` cycles the bubble's colour: black, slate, plum, forest, ocean, ember. `/mochi theme plum` picks one.
 - `/mochi reroll` gives the current project a new pet.
 - `/mochi boss` summons AUDA to the current project.
 - `/mochi night` summons NYX, and `/mochi grin` summons WISP.

@@ -15,6 +15,7 @@ const now = atom({ plugin: 'pocket-pet', key: 'now' } as const, 0)
 const seed = atom({ plugin: 'pocket-pet', key: 'seed' } as const, 0)
 const project = atom({ plugin: 'pocket-pet', key: 'project' } as const, '')
 const isHidden = atom({ plugin: 'pocket-pet', key: 'isHidden' } as const, false)
+const theme = atom({ plugin: 'pocket-pet', key: 'theme' } as const, 'black')
 
 const HAPPY_MS = 8000
 const LOVE_MS = 4000
@@ -43,35 +44,55 @@ type Mood =
   | 'worried'
 
 const LINES: Record<Mood, string[]> = {
-  idle: ['hi, I’m {name}', 'ready when you are', 'just vibing', 'say something nice'],
-  busy: ['on it…', 'watching the tools', 'thinking hard', 'ooh, progress'],
-  dizzy: ['so many tools', 'wheee…', 'head spinning', 'tool storm!'],
-  happy: ['done! nice one', 'that went well', 'yay', 'another one shipped'],
-  proud: ['look at us go', 'on a streak!', 'nailed it', 'proud of us'],
-  sad: ['aw, it stopped', 'that stung a bit', 'we’ll get it', 'try again?'],
-  oops: ['oops, a tool failed', 'eek!', 'that didn’t work', 'shake it off'],
-  love: ['hehe ♥', 'more pets please', 'you’re my favourite', 'purr'],
-  eating: ['nom nom', 'yummy', 'thank you!', 'crunch crunch'],
-  hungry: ['tummy rumbles', 'snack please?', 'feed me?', 'so hungry…'],
-  bored: ['hmm…', 'anything to do?', 'counting pixels', 'tap tap tap'],
-  sleepy: ['zzz…', 'nap time', 'wake me with a prompt', 'dreaming of tokens'],
-  worried: ['limits are low…', 'context is getting full', 'maybe compact?', 'go easy on me'],
+  idle: [
+    'hi, I’m {name}',
+    'ready when you are',
+    'just vibing',
+    'say something nice',
+    'what are we building?',
+    'I kept your seat warm',
+    'psst. over here',
+    'the cursor looks tasty',
+    'poke me, I dare you',
+    'no bugs in sight',
+  ],
+  busy: ['on it…', 'watching the tools', 'thinking hard', 'ooh, progress', 'shh, it’s working', 'reading every line', 'holding my breath', 'almost, almost'],
+  dizzy: ['so many tools', 'wheee…', 'head spinning', 'tool storm!', 'which way is up?', 'one at a time, please'],
+  happy: ['done! nice one', 'that went well', 'yay', 'another one shipped', 'clean landing', 'high paw!', 'we did that', 'green all the way'],
+  proud: ['look at us go', 'on a streak!', 'nailed it', 'proud of us', 'frame this one', 'tell everyone', 'that was a big one'],
+  sad: ['aw, it stopped', 'that stung a bit', 'we’ll get it', 'try again?', 'I still believe in us', 'deep breath', 'next one lands'],
+  oops: ['oops, a tool failed', 'eek!', 'that didn’t work', 'shake it off', 'I saw nothing', 'not our fault. maybe', 'ow, my pixels'],
+  love: ['hehe ♥', 'more pets please', 'you’re my favourite', 'purr', 'right there ♥', 'best human', 'I’m keeping count', 'again, again'],
+  eating: ['nom nom', 'yummy', 'thank you!', 'crunch crunch', 'rice is life', 'saving a bite for later'],
+  hungry: ['tummy rumbles', 'snack please?', 'feed me?', 'so hungry…', 'I’d trade a bug for rice', 'is that food? no…', 'running on empty'],
+  bored: ['hmm…', 'anything to do?', 'counting pixels', 'tap tap tap', 'I’ll go for a walk', 'your move', 'rearranged my yard', 'still here'],
+  sleepy: ['zzz…', 'nap time', 'wake me with a prompt', 'dreaming of tokens', 'five more minutes', 'mmf… commits…'],
+  worried: ['limits are low…', 'context is getting full', 'maybe compact?', 'go easy on me', 'pace yourself', 'short prompts, please'],
 }
 
 const EVIL_LINES: Record<Mood, string[]> = {
-  idle: ['I am {name}. kneel', 'final boss, at rest', 'plotting quietly', 'your code amuses me'],
-  busy: ['burning through it…', 'the tools obey', 'scorching bugs', 'mwahaha, progress'],
-  dizzy: ['chaos! I love it', 'MORE TOOLS', 'tool storm, yes', 'drunk on power'],
-  happy: ['victory is ours', 'another one falls', 'flawless', 'boss fight won'],
-  proud: ['bow to the streak', 'unstoppable', 'legends, us', 'fear our velocity'],
-  sad: ['retreat… for now', 'we strike again', 'a minor setback', 'revenge later'],
-  oops: ['the tool betrayed us', 'grr!', 'who dares fail me', 'it will pay'],
-  love: ['…fine. more pets', 'tell no one ♥', 'purr. ahem. roar', 'acceptable tribute'],
-  eating: ['tribute accepted', 'crunch', 'more offerings', 'delicious'],
-  hungry: ['feed me, mortal', 'I hunger', 'snacks or chaos', 'tribute is due'],
-  bored: ['entertain me', 'so… quiet', 'sharpening claws', 'no challengers?'],
-  sleepy: ['zzz… conquering…', 'dreaming of fire', 'do not wake me', 'zzz…'],
-  worried: ['limits close in…', 'context runs thin', 'compact, or perish', 'tread carefully'],
+  idle: [
+    'I am {name}. kneel',
+    'final boss, at rest',
+    'plotting quietly',
+    'your code amuses me',
+    'I see your cursor, mortal',
+    'approach. slowly',
+    'the throne is warm',
+    'bring me a worthy bug',
+  ],
+  busy: ['burning through it…', 'the tools obey', 'scorching bugs', 'mwahaha, progress', 'none shall compile but us', 'the logs tremble'],
+  dizzy: ['chaos! I love it', 'MORE TOOLS', 'tool storm, yes', 'drunk on power', 'the world spins for me'],
+  happy: ['victory is ours', 'another one falls', 'flawless', 'boss fight won', 'as foretold', 'loot acquired'],
+  proud: ['bow to the streak', 'unstoppable', 'legends, us', 'fear our velocity', 'carve it in stone', 'the realm grows'],
+  sad: ['retreat… for now', 'we strike again', 'a minor setback', 'revenge later', 'I allowed that', 'regroup, mortal'],
+  oops: ['the tool betrayed us', 'grr!', 'who dares fail me', 'it will pay', 'insolent exit code', 'a traitor in the shell'],
+  love: ['…fine. more pets', 'tell no one ♥', 'purr. ahem. roar', 'acceptable tribute', 'you may continue', 'do not stop. I mean it'],
+  eating: ['tribute accepted', 'crunch', 'more offerings', 'delicious', 'a feast fit for me'],
+  hungry: ['feed me, mortal', 'I hunger', 'snacks or chaos', 'tribute is due', 'my fire burns low', 'rice. now'],
+  bored: ['entertain me', 'so… quiet', 'sharpening claws', 'no challengers?', 'pacing my lair', 'I could burn something'],
+  sleepy: ['zzz… conquering…', 'dreaming of fire', 'do not wake me', 'zzz…', 'guarding the hoard… zzz'],
+  worried: ['limits close in…', 'context runs thin', 'compact, or perish', 'tread carefully', 'spend tokens wisely'],
 }
 
 const TIPS = [
@@ -87,6 +108,12 @@ const TIPS = [
   'ship it, polish later',
   'name things for future you',
   'a short walk fixes bugs',
+  'write the test you fear',
+  'commit before the big edit',
+  'one question per prompt',
+  'paste the real error',
+  'unclench your jaw',
+  'say what done looks like',
 ]
 
 const EVIL_TIPS = [
@@ -161,7 +188,33 @@ const moodOf = ({ beat: b, t, active, isWorking, isWorried: worried, burst: tool
 
 const fullnessOf = (t: number, fed: number) => Math.max(0, Math.min(100, 100 - ((t - fed) / FULL_MS) * 100))
 
-const levelOf = (turnCount: number, petCount: number) => Math.floor(Math.sqrt((turnCount + Math.floor(petCount / 5)) / 3)) + 1
+const HEARTS_PER_XP = 5
+
+const xpOf = (turnCount: number, petCount: number) => turnCount + Math.floor(petCount / HEARTS_PER_XP)
+
+const levelOf = (turnCount: number, petCount: number) => Math.floor(Math.sqrt(xpOf(turnCount, petCount) / 3)) + 1
+
+const progressOf = (turnCount: number, petCount: number) => {
+  const level = levelOf(turnCount, petCount)
+  const from = 3 * (level - 1) ** 2
+  const to = 3 * level ** 2
+  const xp = xpOf(turnCount, petCount)
+  return { level, xp: xp - from, span: to - from, share: (xp - from) / (to - from), heartsToXp: HEARTS_PER_XP - (petCount % HEARTS_PER_XP) }
+}
+
+type Moment = { hour: number; streak: number; turnCount: number; petCount: number }
+
+const momentLines = ({ hour, streak: run, turnCount, petCount }: Moment, isEvil: boolean) => {
+  const { level, xp, span, heartsToXp } = progressOf(turnCount, petCount)
+  const lines = [`${heartsToXp} more ♥ for 1 xp`, `${span - xp} xp to level ${level + 1}`]
+  if (run >= 2) lines.push(isEvil ? `${run} victories in a row` : `${run} turns in a row!`)
+  if (hour >= 23 || hour < 5) lines.push(isEvil ? 'even bosses sleep. go' : 'it’s late. sleep soon?')
+  else if (hour < 10) lines.push(isEvil ? 'dawn. we conquer' : 'good morning ♥')
+  else if (hour >= 12 && hour < 14) lines.push(isEvil ? 'feast time, mortal' : 'lunch yet?')
+  else if (hour >= 17 && hour < 20) lines.push(isEvil ? 'one last raid today' : 'last push of the day')
+  if (turnCount > 0 && turnCount % 50 === 0) lines.push(`${turnCount} turns together`)
+  return lines
+}
 
 const INK = '#2B2140'
 const OPEN = `<ellipse cx="25" cy="31" rx="2.7" ry="3.5" fill="${INK}"/><ellipse cx="39" cy="31" rx="2.7" ry="3.5" fill="${INK}"/><circle cx="26" cy="29.6" r="1" fill="#fff"/><circle cx="40" cy="29.6" r="1" fill="#fff"/>`
@@ -213,7 +266,11 @@ type Kind = {
   css?: (mood: Mood) => string
   eyes?: (p: Palette, mood: Mood) => string
   mouth?: (p: Palette, mood: Mood) => string | undefined
+  react?: string
 }
+
+const NEAR = '.z:hover~.pet'
+const ON_FACE = '.zc:hover~.pet'
 
 const KINDS: Kind[] = [
   {
@@ -224,6 +281,7 @@ const KINDS: Kind[] = [
       ),
     tail: p =>
       `<path d="M50 45 Q59.5 44 58.5 35 Q58 30.5 54.5 31.5" stroke="rgba(43,33,64,.28)" stroke-width="4.6" fill="none" stroke-linecap="round"/><path d="M50 45 Q59.5 44 58.5 35 Q58 30.5 54.5 31.5" stroke="${p.ear}" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+    react: `${NEAR} .wag{animation-duration:.4s}`,
   },
   {
     word: 'bunny',
@@ -232,6 +290,7 @@ const KINDS: Kind[] = [
         `<ellipse cx="22.5" cy="9.8" rx="4.2" ry="9.4" transform="rotate(-14 22.5 9.8)" fill="${p.ear}" ${EDGE}/><ellipse cx="22.8" cy="10.8" rx="2" ry="6.4" transform="rotate(-14 22.8 10.8)" fill="${p.inner}" opacity=".7"/>`,
       ),
     tail: () => `<circle cx="54.6" cy="44.4" r="3.8" fill="#FFFDF7" ${EDGE}/>`,
+    react: `${NEAR} .ears{transform:translateY(-2.8px)}`,
   },
   {
     word: 'bear',
@@ -240,6 +299,7 @@ const KINDS: Kind[] = [
         `<circle cx="18.5" cy="17" r="6" fill="${p.ear}" ${EDGE}/><circle cx="18.8" cy="17.4" r="3.2" fill="${p.inner}" opacity=".7"/>`,
       ),
     tail: p => `<circle cx="54" cy="45.5" r="3" fill="${p.ear}" ${EDGE}/>`,
+    react: `${NEAR} .ears{animation:wiggle .45s ease-in-out infinite;transform-origin:32px 22px}@keyframes wiggle{0%,100%{transform:translateY(-1px) rotate(-3deg)}50%{transform:translateY(-1px) rotate(3deg)}}`,
   },
   {
     word: 'fox',
@@ -249,6 +309,7 @@ const KINDS: Kind[] = [
       ),
     tail: p =>
       `<path d="M48.5 46 Q61 47.5 60.5 36.5 Q60 29.5 55 28 Q57.5 37 48.5 40.5 Z" fill="${p.ear}" ${EDGE}/><path d="M55 28 Q59.6 29.4 60.4 34.4 Q57.6 33 56.3 31 Z" fill="#FFFDF7"/>`,
+    react: `${NEAR} .swish{transform:rotate(-20deg)}${NEAR} .ears{transform:translateY(-2px)}`,
   },
 ]
 
@@ -305,6 +366,7 @@ const DRAGON: Kind = {
     BLAZING.has(mood)
       ? '<circle class="float" cx="12" cy="22" r="1" fill="#FF5A36"/><circle class="float t2" cx="52" cy="20" r=".9" fill="#FFB23E"/><circle class="float slow" cx="46" cy="9" r=".7" fill="#FF5A36"/>'
       : '',
+  react: `${NEAR} .flap{animation:flap .14s ease-in-out infinite alternate}${NEAR} .rage{animation-duration:.5s}`,
 }
 
 const BOSS = 'AUDA'
@@ -326,7 +388,7 @@ const gaze = (p: Palette, mood: Mood) => {
   if (mood === 'oops') return EYES.oops.replaceAll(INK, glow)
   const rx = SLIT[mood] ?? 1.4
   const eye = (cx: number) =>
-    `<ellipse cx="${cx}" cy="30.4" rx="4.7" ry="5.3" fill="url(#iris)" stroke="${p.deep}" stroke-width=".9"/><ellipse class="pupil" cx="${cx}" cy="30.6" rx="${rx}" ry="4.1" fill="#04060A"/><circle cx="${cx + 1.7}" cy="28" r="1.25" fill="#fff"/><circle cx="${cx - 1.5}" cy="32.8" r=".6" fill="#fff" opacity=".8"/>`
+    `<ellipse cx="${cx}" cy="30.4" rx="4.7" ry="5.3" fill="url(#iris)" stroke="${p.deep}" stroke-width=".9"/><g class="look"><ellipse class="pupil" cx="${cx}" cy="30.6" rx="${rx}" ry="4.1" fill="#04060A"/><circle cx="${cx + 1.7}" cy="28" r="1.25" fill="#fff"/><circle cx="${cx - 1.5}" cy="32.8" r=".6" fill="#fff" opacity=".8"/></g>`
   const lid =
     mood === 'bored'
       ? `<path d="M18.6 29.4 Q24 23.4 29.4 29.4 Z M34.6 29.4 Q40 23.4 45.4 29.4 Z" fill="${p.mid}"/><path d="M18.8 29.4 H29.2 M34.8 29.4 H45.2" stroke="${p.deep}" stroke-width=".9" stroke-linecap="round"/>`
@@ -343,7 +405,7 @@ const iris = (inner: string, mid: string, outer: string) =>
 
 const halo = () => `<ellipse cx="32" cy="35" rx="29" ry="21" fill="url(#rage)" opacity=".4"/>`
 
-const PUPIL_CSS = '.pupil{animation:pupil 5.5s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes pupil{0%,70%,100%{transform:scaleX(1)}80%,90%{transform:scaleX(1.9)}}'
+const PUPIL_CSS = '.pupil{animation:pupil 5.5s ease-in-out infinite;transform-box:fill-box;transform-origin:center;transition:transform .2s ease-out}@keyframes pupil{0%,70%,100%{transform:scaleX(1)}80%,90%{transform:scaleX(1.9)}}'
 
 const NIGHT: Palette = {
   light: '#566070',
@@ -376,6 +438,7 @@ const NIGHT_DRAGON: Kind = {
   css: () =>
     `${PUPIL_CSS}.twitch{animation:twitch 6.5s ease-in-out infinite;transform-origin:20px 20px}@keyframes twitch{0%,84%,100%{transform:rotate(0)}88%{transform:rotate(-9deg)}92%{transform:rotate(4deg)}}`,
   eyes: gaze,
+  react: `${NEAR} .pupil{animation:none;transform:scaleX(2.3)}${NEAR} .twitch{animation:none;transform:rotate(-8deg)}`,
 }
 
 const SMOKE: Palette = {
@@ -410,8 +473,9 @@ const GRIN_CAT: Kind = {
   eyes: gaze,
   mouth: (p, mood) =>
     GRINS.has(mood)
-      ? `<g class="${mood === 'eating' ? 'chew' : ''}"><path d="M20.4 36.6 Q32 47.4 43.6 36.6 Q32 40.6 20.4 36.6 Z" fill="#F4FFFD" stroke="${p.deep}" stroke-width=".9" stroke-linejoin="round"/><path d="M24.6 38.3 V40.5 M28.2 39.3 V42.5 M32 39.6 V43.4 M35.8 39.3 V42.5 M39.4 38.3 V40.5" stroke="${p.deep}" stroke-width=".7"/><path d="M19.4 35.6 Q20 37 21.6 37.2 M44.6 35.6 Q44 37 42.4 37.2" stroke="${p.deep}" stroke-width=".9" fill="none" stroke-linecap="round"/></g>`
+      ? `<g class="grin"><g class="${mood === 'eating' ? 'chew' : ''}"><path d="M20.4 36.6 Q32 47.4 43.6 36.6 Q32 40.6 20.4 36.6 Z" fill="#F4FFFD" stroke="${p.deep}" stroke-width=".9" stroke-linejoin="round"/><path d="M24.6 38.3 V40.5 M28.2 39.3 V42.5 M32 39.6 V43.4 M35.8 39.3 V42.5 M39.4 38.3 V40.5" stroke="${p.deep}" stroke-width=".7"/><path d="M19.4 35.6 Q20 37 21.6 37.2 M44.6 35.6 Q44 37 42.4 37.2" stroke="${p.deep}" stroke-width=".9" fill="none" stroke-linecap="round"/></g></g>`
       : undefined,
+  react: `.grin{transform-box:fill-box;transform-origin:center;transition:transform .2s cubic-bezier(.3,1.8,.5,1)}${NEAR} .veil{animation:none;opacity:1}${NEAR} .grin{transform:scale(1.12)}`,
 }
 
 const STRIPES = (p: Palette) =>
@@ -595,9 +659,23 @@ const shimmerLines = (verbs: string[], y: number, width: number, glow: string) =
   }
 }
 
-type Say = { line?: string; verbs?: string[]; level: number; fullness: number; look: Look }
+type Skin = { fill: string; edge: string; text: string; dim: string; off: string }
 
-const bubble = ({ line, verbs, level, fullness, look }: Say) => {
+const SKINS: Record<string, Skin> = {
+  black: { fill: '#000000', edge: '#232327', text: '#F2F2F2', dim: '#77777D', off: '#1F1F23' },
+  slate: { fill: '#11151C', edge: '#2A3140', text: '#EEF2F8', dim: '#7C8698', off: '#232A36' },
+  plum: { fill: '#170F22', edge: '#372650', text: '#F4EEFB', dim: '#8C7BA6', off: '#2A1D3D' },
+  forest: { fill: '#0B1710', edge: '#1F3A29', text: '#ECF7EF', dim: '#73907C', off: '#18291E' },
+  ocean: { fill: '#07161F', edge: '#17384B', text: '#EAF5FB', dim: '#6F8D9E', off: '#12293A' },
+  ember: { fill: '#1C0D0A', edge: '#46211A', text: '#FBEFEA', dim: '#A07F74', off: '#321812' },
+}
+const SKIN_NAMES = Object.keys(SKINS)
+const BLACK = SKINS.black as Skin
+const skinOf = (name: string) => SKINS[name] ?? BLACK
+
+type Say = { line?: string; verbs?: string[]; level: number; share: number; fullness: number; look: Look; skin: Skin }
+
+const bubble = ({ line, verbs, level, share, fullness, look, skin }: Say) => {
   const { accent, glow } = look.palette
   const label = look.name.toUpperCase()
   const levelX = Math.round(20 + label.length * 5.8)
@@ -609,14 +687,22 @@ const bubble = ({ line, verbs, level, fullness, look }: Say) => {
     : ''
   const pips = Array.from({ length: 5 }, (_, i) => {
     const isLit = fullness > i * 20 + 4
-    return `<rect x="${width - 9 - (5 - i) * 4.6 + 1}" y="9" width="3.4" height="3.4" rx=".8" fill="${isLit ? accent : '#26262A'}"/>`
+    return `<rect x="${width - 9 - (5 - i) * 4.6 + 1}" y="9" width="3.4" height="3.4" rx=".8" fill="${isLit ? accent : skin.off}"/>`
   }).join('')
-  const body = verbs ? shimmerLines(verbs, 29, width, glow) : null
+  const track = width - 24
+  const xp = `<rect x="14" y="33.6" width="${track}" height="1.6" rx=".8" fill="${skin.off}"/><rect x="14" y="33.6" width="${(track * Math.max(0.04, Math.min(1, share))).toFixed(1)}" height="1.6" rx=".8" fill="${accent}"/>`
+  const body = verbs ? shimmerLines(verbs, 28.5, width, glow) : null
   return {
     width,
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 40" width="${width}" height="40"><defs>${body?.defs ?? ''}</defs><g font-family="${MONO}"><path d="M11.5 .5 H${width - 7.5} a7 7 0 0 1 7 7 V32.5 a7 7 0 0 1 -7 7 H11.5 a7 7 0 0 1 -7 -7 V24 L.5 20 L4.5 16 V7.5 a7 7 0 0 1 7 -7 Z" fill="#0B0B0C" stroke="${look.rare?.border ?? '#232327'}"/><text x="14" y="15" font-size="7.5" letter-spacing="1.3" fill="${accent}">${label}</text><text x="${levelX}" y="15" font-size="7.5" letter-spacing="1" fill="#77777D">LV${level}</text>${badge}${pips}${body ? body.texts : `<text x="14" y="29" font-size="9" fill="#F2F2F2">${escape(line ?? '')}</text>`}</g></svg>`,
+    defs: body?.defs ?? '',
+    body: `<g font-family="${MONO}"><path d="M11.5 .5 H${width - 7.5} a7 7 0 0 1 7 7 V32.5 a7 7 0 0 1 -7 7 H11.5 a7 7 0 0 1 -7 -7 V24 L.5 20 L4.5 16 V7.5 a7 7 0 0 1 7 -7 Z" fill="${skin.fill}" stroke="${look.rare?.border ?? skin.edge}"/><text x="14" y="15" font-size="7.5" letter-spacing="1.3" fill="${accent}">${label}</text><text x="${levelX}" y="15" font-size="7.5" letter-spacing="1" fill="${skin.dim}">LV${level}</text>${badge}${pips}${body ? body.texts : `<text x="14" y="28.5" font-size="9" fill="${skin.text}">${escape(line ?? '')}</text>`}${xp}</g>`,
   }
 }
+
+const TRACKED = new Set<Mood>(['idle', 'busy', 'happy', 'proud', 'sad', 'love', 'eating', 'hungry', 'bored', 'worried'])
+const NUZZLES = new Set<Mood>(['idle', 'busy', 'sad', 'hungry', 'bored', 'worried'])
+const HEART = (x: number, y: number, s: number, color: string) =>
+  `<path d="M${x} ${y} l${-3 * s} ${-3 * s} a${1.8 * s} ${1.8 * s} 0 0 1 ${3 * s} ${-2 * s} a${1.8 * s} ${1.8 * s} 0 0 1 ${3 * s} ${2 * s}z" fill="${color}"/>`
 
 const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil }: Look) => {
   const isFrantic = mood === 'busy' || mood === 'dizzy'
@@ -639,7 +725,13 @@ const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil }: Look) => {
   const ink = p.ink ?? INK
   const wrap = mood === 'worried' || mood === 'oops' ? 'shake' : mood === 'dizzy' ? 'wobble' : ''
   const mouth = MOUTH[mood]
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 56" width="46" height="40">
+  const isTracked = TRACKED.has(mood)
+  const eyes = kind.eyes?.(p, mood) ?? `<g class="look">${EYES[mood].replaceAll(INK, ink)}</g>`
+  const squint = kind.eyes
+    ? `<path d="M19.6 32 Q24 26.6 28.4 32 M35.6 32 Q40 26.6 44.4 32" stroke="${ink}" stroke-width="2" fill="none" stroke-linecap="round"/>`
+    : ARCS.replaceAll(INK, ink)
+  const nuzzle = NUZZLES.has(mood) ? `<g class="nz">${squint}</g>` : ''
+  return `<svg xmlns="http://www.w3.org/2000/svg" class="pet" viewBox="0 0 64 56" width="46" height="40">
 <defs>
 <radialGradient id="body" cx="40%" cy="32%" r="75%"><stop offset="0" stop-color="${p.light}"/><stop offset=".55" stop-color="${p.mid}"/><stop offset="1" stop-color="${p.deep}"/></radialGradient>
 <radialGradient id="rage"><stop offset="0" stop-color="${p.accent}" stop-opacity=".55"/><stop offset="1" stop-color="${p.accent}" stop-opacity="0"/></radialGradient>
@@ -682,31 +774,106 @@ ${kind.defs?.(p) ?? ''}
 @keyframes chew{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.4)}}
 @keyframes nib{0%,100%{transform:rotate(-6deg) translateX(0)}50%{transform:rotate(4deg) translateX(-1.5px)}}
 ${kind.css?.(mood) ?? ''}
-@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+.lean{transform:rotate(var(--tilt,0deg));transform-origin:32px 50px;transition:transform .3s cubic-bezier(.3,1.5,.5,1)}
+.squash{transform-origin:32px 50px;transition:transform .45s cubic-bezier(.2,2.2,.4,1)}
+.ears,.swish{transition:transform .25s cubic-bezier(.3,1.8,.5,1)}
+.swish{transform-origin:50px 45px}
+.cheek,.eyes,.nz{transition:opacity .14s}
+.nz{opacity:0}
+.tap{opacity:0;transform:translateY(-12px);transition:opacity .9s ease-in .2s,transform 1.1s ease-out}
+${isTracked ? '.look{transform:translate(var(--lx,0px),var(--ly,0px));transition:transform .16s ease-out}' : ''}
+${NEAR} .ears{transform:translateY(-1.3px)}
+${NEAR} .swish{transform:rotate(-12deg)}
+${NEAR} .cheek{opacity:.9}
+${nuzzle ? `${ON_FACE} .nz{opacity:1}${ON_FACE} .eyes{opacity:0}` : ''}
+.walk:active .squash{transform:scale(1.12,.84);transition-duration:.06s}
+.walk:active .tap{opacity:1;transform:none;transition-duration:.05s;transition-delay:0s}
+${kind.react ?? ''}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </defs>
 ${isEvil ? '<ellipse class="rage" cx="32" cy="36" rx="30" ry="22" fill="url(#rage)"/>' : ''}
 ${kind.back?.(p) ?? ''}
 <ellipse class="shadow" cx="32" cy="52" rx="17" ry="2.6" fill="${INK}"/>
-<g class="bob"><g class="${wrap}">
+<g class="bob"><g class="lean"><g class="squash"><g class="${wrap}">
 <g class="veil">
 ${kind.wings?.(p) ?? ''}
-<g class="wag">${kind.tail(p)}</g>
-${kind.ears(p)}
+<g class="swish"><g class="wag">${kind.tail(p)}</g></g>
+<g class="ears">${kind.ears(p)}</g>
 <path d="M11 39 C11 22 21 12 32 12 C43 12 53 22 53 39 C53 47 46 50.5 32 50.5 C18 50.5 11 47 11 39 Z" fill="url(#body)" stroke="${p.rim ?? 'rgba(43,33,64,.28)'}" stroke-width="1.1"/>
 <ellipse cx="32" cy="43.6" rx="9.5" ry="5.2" fill="${p.ink ? p.inner : '#fff'}" opacity="${p.ink ? '.22' : '.3'}"/>
 <ellipse cx="23" cy="20" rx="5" ry="2.6" fill="#fff" opacity="${p.ink ? '.4' : '.7'}" transform="rotate(-24 23 20)"/>
 ${marks}
-${mirror(`<ellipse cx="19.5" cy="37" rx="3.6" ry="2.1" fill="${p.cheek}" opacity="${mood === 'sad' || mood === 'hungry' ? '.3' : '.55'}"/><ellipse cx="24.5" cy="49.8" rx="4.4" ry="2.3" fill="${p.ear}" ${EDGE}/>`)}
+${mirror(`<ellipse class="cheek" cx="19.5" cy="37" rx="3.6" ry="2.1" fill="${p.cheek}" opacity="${mood === 'sad' || mood === 'hungry' ? '.3' : '.55'}"/><ellipse cx="24.5" cy="49.8" rx="4.4" ry="2.3" fill="${p.ear}" ${EDGE}/>`)}
 ${wear}
 </g>
 ${kind.face?.(p, mood) ?? ''}
-<g${p.ink ? ' filter="url(#glow)"' : ''}>${kind.eyes?.(p, mood) ?? EYES[mood].replaceAll(INK, ink)}</g>
+<g${p.ink ? ' filter="url(#glow)"' : ''}><g class="eyes">${eyes}</g>${nuzzle}</g>
 ${kind.mouth?.(p, mood) ?? `<path class="${mouth.cls ?? ''}" d="${mouth.d}" stroke="${ink}" stroke-width="1.4" fill="${mouth.fill ?? 'none'}" stroke-linecap="round" stroke-linejoin="round"/>`}
-</g></g>
+</g></g></g></g>
 ${EXTRA[mood]}
 ${kind.aura?.(mood) ?? ''}
+<g class="tap">${HEART(13, 15, 1, p.ink ?? '#FF6FA5')}${HEART(52, 11, 0.8, p.ink ? p.trim : '#FF9EC4')}${HEART(33, 7, 0.6, p.ink ?? '#FF6FA5')}</g>
 </svg>`
+}
+
+const YARD = 26
+const PET_W = 46
+const REACH = 22
+const COLS = [-REACH, -2, 15, 31, 48, PET_W + REACH]
+const ROWS = [0, 13, 29, 40]
+const ROAMS = new Set<Mood>(['idle', 'bored', 'hungry', 'happy', 'proud'])
+
+const zones = () => {
+  const rects: string[] = []
+  const rules: string[] = []
+  for (let r = 0; r < ROWS.length - 1; r++) {
+    for (let c = 0; c < COLS.length - 1; c++) {
+      const isFace = r === 1 && c === 2
+      const x = COLS[c] ?? 0
+      const y = ROWS[r] ?? 0
+      rects.push(`<rect class="z${isFace ? ' zc' : ''} z${r}${c}" x="${x}" y="${y}" width="${(COLS[c + 1] ?? 0) - x}" height="${(ROWS[r + 1] ?? 0) - y}"/>`)
+      if (!isFace) rules.push(`.z${r}${c}:hover~.pet{--lx:${((c - 2) * 0.9).toFixed(1)}px;--ly:${((r - 1) * 0.9).toFixed(1)}px;--tilt:${(c - 2) * 2.5}deg}`)
+    }
+  }
+  return { rects: rects.join(''), rules: rules.join('') }
+}
+
+const ZONES = zones()
+
+const STROLL = `.walk{animation:stroll 26s ease-in-out infinite}.hop{animation:hop 26s linear infinite}.walk:hover,.walk:hover .hop{animation-play-state:paused}@keyframes stroll{0%,34%,88%,100%{transform:translateX(${YARD}px)}44%,78%{transform:translateX(0)}}@keyframes hop{0%,34%,39%,44%,78%,83%,88%,100%{transform:translateY(0)}36.5%,41.5%,80.5%,85.5%{transform:translateY(-2.6px)}}`
+
+const scene = (mood: Mood, look: Look, say: ReturnType<typeof bubble>) => {
+  const width = YARD + PET_W + say.width
+  return {
+    width,
+    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 40" width="${width}" height="40"><defs>${say.defs}<style>.z{fill:transparent;pointer-events:all;cursor:pointer}.pet,.say{pointer-events:none}.walk{transform:translateX(${YARD}px)}${ZONES.rules}${ROAMS.has(mood) ? STROLL : ''}@media (prefers-reduced-motion:reduce){.walk,.hop{animation:none!important}}</style></defs><g class="say" transform="translate(${YARD + PET_W} 0)">${say.body}</g><g class="walk"><g class="hop">${ZONES.rects}${pet(mood, look)}</g></g></svg>`,
+  }
+}
+
+type Sheet = { look: Look; turnCount: number; petCount: number; full: number; streak: number; skin: Skin }
+
+const STATS = /level \d+ · (\d+) turns seen · (\d+) pets · (\d+)% full · streak (\d+)$/
+
+const card = ({ look, turnCount, petCount, full, streak: run, skin }: Sheet) => {
+  const { accent, glow } = look.palette
+  const { level, xp, span, share, heartsToXp } = progressOf(turnCount, petCount)
+  const portrait = pet(full < 20 ? 'hungry' : 'idle', look).replace('width="46" height="40"', 'x="12" y="10" width="92" height="80"')
+  const tiles = [
+    ['TURNS', String(turnCount)],
+    ['HEARTS', String(petCount)],
+    ['STREAK', String(run)],
+    ['FULL', `${full}%`],
+  ]
+    .map(
+      ([label, value], i) =>
+        `<g transform="translate(${118 + i * 58} 62)"><rect width="52" height="28" rx="5" fill="${skin.off}"/><text x="7" y="10.5" font-size="6" letter-spacing="1.1" fill="${skin.dim}">${label}</text><text x="7" y="22.5" font-size="11" font-weight="600" fill="${skin.text}">${value}</text></g>`,
+    )
+    .join('')
+  const badge = look.rare
+    ? `<rect x="${124 + look.name.length * 9.6}" y="11" width="30" height="11" rx="2.6" fill="${look.rare.plate}" stroke="${accent}" stroke-width=".6"/><text x="${128.4 + look.name.length * 9.6}" y="19.2" font-size="7" font-weight="700" letter-spacing="1.1" fill="${glow}">${look.rare.badge}</text>`
+    : ''
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 364 100" width="364" height="100"><rect x=".5" y=".5" width="363" height="99" rx="10" fill="${skin.fill}" stroke="${look.rare?.border ?? skin.edge}"/><rect x="8" y="8" width="100" height="84" rx="7" fill="${skin.off}" opacity=".55"/>${portrait}<g font-family="${MONO}"><text x="118" y="21" font-size="13" font-weight="700" letter-spacing="2" fill="${accent}">${look.name.toUpperCase()}</text>${badge}<text x="346" y="21" font-size="13" font-weight="700" text-anchor="end" fill="${skin.text}">LV ${level}</text><text x="118" y="33" font-size="7.5" letter-spacing=".6" fill="${skin.dim}">${escape(look.rare?.title ?? look.kind.word)}</text><rect x="118" y="40" width="228" height="5" rx="2.5" fill="${skin.off}"/><rect x="118" y="40" width="${(228 * Math.max(0.03, share)).toFixed(1)}" height="5" rx="2.5" fill="${accent}"/><text x="118" y="55" font-size="7" fill="${skin.dim}">${xp}/${span} xp to level ${level + 1}</text><text x="346" y="55" font-size="7" text-anchor="end" fill="${skin.dim}">${heartsToXp} ♥ to next xp</text>${tiles}</g></svg>`
 }
 
 const poke = async ($: EngineInterface) => {
@@ -737,6 +904,15 @@ const titleOf = (look: Look) => (look.rare ? `${look.name} · ${look.rare.title}
 
 const stored = async ($: EngineInterface, key: string) => Number(await $.store.get(key)) || 0
 
+const kept = async ($: EngineInterface, key: string) => {
+  try {
+    return await stored($, key)
+  } catch {
+    // A band that cannot reach the store still draws, from the session's own counts.
+    return 0
+  }
+}
+
 const sync = async ($: EngineInterface) => {
   const storedPets = await stored($, 'pets')
   await update($, pets, n => Math.max(n, storedPets))
@@ -746,21 +922,26 @@ const sync = async ($: EngineInterface) => {
   await update($, fedAt, n => Math.max(n, storedFed) || Date.now() - FULL_MS / 2)
   const hidden = (await $.store.get('hidden')) === true
   await update($, isHidden, () => hidden)
+  const skin = await $.store.get('theme')
+  if (typeof skin === 'string' && skin in SKINS) await update($, theme, () => skin)
 }
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    await $.command.register({
-      name: 'mochi',
-      description: 'Show your pet’s stats; reroll gives this project a new pet; boss, night and grin summon the rare ones; hide hides it',
-      argumentHint: '[reroll | boss | night | grin | hide]',
-    })
     const key = `look:${hashOf(e.cwd).toString(36)}`
     const rolled = await stored($, key)
     await update($, project, () => key)
     await update($, seed, () => rolled || hashOf(e.cwd))
     await sync($)
+    const run = await stored($, 'streak')
+    await update($, streak, n => n || run)
     await poke($)
+    await $.command.register({
+      name: 'mochi',
+      description:
+        'Show your pet’s stats; reroll gives this project a new pet; boss, night and grin summon the rare ones; theme recolours its bubble; hide hides it',
+      argumentHint: '[reroll | boss | night | grin | theme [name] | hide]',
+    })
     $.clock.every(30e3, async () => {
       await sync($)
       await update($, now, () => Date.now())
@@ -795,6 +976,7 @@ export const register: Register = on => {
     await poke($)
     if (e.isAborted || e.reason === 'error') {
       await update($, streak, () => 0)
+      await $.store.set('streak', 0)
       await pulse($, 'sad', HAPPY_MS)
       return next(e)
     }
@@ -804,6 +986,7 @@ export const register: Register = on => {
     const total = await update($, turns, n => Math.max(n, storedTurns) + 1)
     await $.store.set('turns', total)
     const run = await update($, streak, n => n + 1)
+    await $.store.set('streak', run)
     cheerLevel($, lookOf(await read($, seed)), before, levelOf(total, petCount))
     await pulse($, run % 5 === 0 || e.durationMs >= LONG_TURN_MS ? 'proud' : 'done', HAPPY_MS)
 
@@ -825,6 +1008,15 @@ export const register: Register = on => {
       await $.store.set('hidden', hidden)
       return { text: hidden ? 'Pet hidden. /mochi hide brings it back.' : 'Pet shown.' }
     }
+    const [verb, pick] = arg.split(/\s+/)
+    if (verb === 'theme') {
+      const current = await read($, theme)
+      const chosen = pick ?? SKIN_NAMES[(SKIN_NAMES.indexOf(current) + 1) % SKIN_NAMES.length] ?? 'black'
+      if (!(chosen in SKINS)) return { text: `No theme called ${pick}. Try ${SKIN_NAMES.join(', ')}.` }
+      await update($, theme, () => chosen)
+      await $.store.set('theme', chosen)
+      return { text: `Bubble theme: ${chosen}. Others: ${SKIN_NAMES.filter(n => n !== chosen).join(', ')}.` }
+    }
     const rare = SUMMON.get(arg)
     if (arg === 'reroll' || rare) {
       const current = lookOf(await read($, seed))
@@ -842,12 +1034,52 @@ export const register: Register = on => {
       return { text: look.rare ? `${look.name}, the ${look.rare.title}, has moved in.` : `Meet ${look.name}, this project’s new ${look.kind.word}.` }
     }
     const t = Date.now()
-    const petCount = await read($, pets)
-    const turnCount = await read($, turns)
+    const petCount = Math.max(await read($, pets), await stored($, 'pets'))
+    const turnCount = Math.max(await read($, turns), await stored($, 'turns'))
     const full = Math.round(fullnessOf(t, await read($, fedAt)))
     return {
       text: `${titleOf(lookOf(await read($, seed)))} · level ${levelOf(turnCount, petCount)} · ${turnCount} turns seen · ${petCount} pets · ${full}% full · streak ${await read($, streak)}`,
     }
+  })
+
+  on('ui.render', { component: 'CommandOutput', props: { command: 'mochi' } }, async ($, e, next) => {
+    const look = lookOf(await read($, seed))
+    const found = e.props.isErrored || e.props.args.trim() ? null : STATS.exec(e.props.text)
+    if (!found || !e.props.text.startsWith(titleOf(look))) return next(e)
+    const [turnCount = 0, petCount = 0, full = 0, run = 0] = found.slice(1).map(Number)
+    const { level, xp, span, share, heartsToXp } = progressOf(turnCount, petCount)
+
+    if (e.surface === 'terminal') {
+      const { Box, Text } = $.ui.resolve(e)
+      const lit = Math.round(share * 24)
+      return (
+        <Box flexDirection="column">
+          <Box flexDirection="row" gap={1}>
+            <Text color={look.palette.accent} bold>
+              {look.name.toUpperCase()}
+            </Text>
+            <Text dimColor>{look.rare?.title ?? look.kind.word}</Text>
+            <Text bold>{`LV ${level}`}</Text>
+          </Box>
+          <Box flexDirection="row" gap={1}>
+            <Text color={look.palette.accent}>{'━'.repeat(lit)}</Text>
+            <Text dimColor>{'━'.repeat(24 - lit)}</Text>
+            <Text dimColor>{`${xp}/${span} xp · ${heartsToXp} ♥ to next xp`}</Text>
+          </Box>
+          <Text dimColor>{`${turnCount} turns · ♥ ${petCount} · streak ${run} · ${full}% full`}</Text>
+        </Box>
+      )
+    }
+
+    const { Svg } = $.ui.resolve(e)
+    return (
+      <Svg
+        source={card({ look, turnCount, petCount, full, streak: run, skin: skinOf(await read($, theme)) })}
+        alt={e.props.text}
+        width={364}
+        height={100}
+      />
+    )
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
@@ -856,7 +1088,7 @@ export const register: Register = on => {
 
     const t = (await read($, now)) || Date.now()
     const b = await read($, beat)
-    const fed = await read($, fedAt)
+    const fed = Math.max(await read($, fedAt), await kept($, 'fedAt'))
     const fullness = fullnessOf(t, fed || t)
     const mood = moodOf({
       beat: b,
@@ -870,7 +1102,14 @@ export const register: Register = on => {
     const isThinking = mood === 'busy'
     const look = lookOf(await read($, seed))
     const verbs = verbsFrom(Math.floor(b.at / 1000))
-    const lines = (look.rare?.lines ?? LINES)[mood]
+    const count = Math.max(await read($, pets), await kept($, 'pets'))
+    const turnCount = Math.max(await read($, turns), await kept($, 'turns'))
+    const { level, share } = progressOf(turnCount, count)
+    const spoken = (look.rare?.lines ?? LINES)[mood]
+    const lines =
+      mood === 'idle'
+        ? [...spoken, ...momentLines({ hour: new Date(t).getHours(), streak: await read($, streak), turnCount, petCount: count }, look.isEvil)]
+        : spoken
     const tips = look.rare?.tips ?? TIPS
     const slot = Math.floor(t / 45e3)
     const isTip = (mood === 'idle' || mood === 'bored') && slot % 2 === 1
@@ -879,8 +1118,6 @@ export const register: Register = on => {
       : isTip
         ? (tips[hashOf(String(slot)) % tips.length] ?? '')
         : (lines[Math.floor(t / 90e3) % lines.length] ?? '').replace('{name}', look.name)
-    const count = await read($, pets)
-    const level = levelOf(await read($, turns), count)
     const isPeckish = fullness < 70
 
     const onPet = async () => {
@@ -907,8 +1144,10 @@ export const register: Register = on => {
       return (
         <Box flexDirection="column">
           {below}
-          <Box flexDirection="row" gap={1}>
-            <Text color={look.palette.accent}>{FACE[mood]}</Text>
+          <Box key="mochi" flexDirection="row" gap={1}>
+            <Text color={look.palette.accent} hover={{ bold: true, color: look.palette.glow }}>
+              {FACE[mood]}
+            </Text>
             <Text dimColor italic={isThinking}>
               {spoken}
             </Text>
@@ -927,13 +1166,12 @@ export const register: Register = on => {
     }
 
     const { Box, Button, Svg } = $.ui.resolve(e)
-    const say = bubble({ line, verbs: isThinking ? verbs : undefined, level, fullness, look })
+    const stage = scene(mood, look, bubble({ line, verbs: isThinking ? verbs : undefined, level, share, fullness, look, skin: skinOf(await read($, theme)) }))
     return (
       <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
         {below}
         <Box key="mochi" flexDirection="row" alignItems="center" gap={0}>
-          <Svg source={pet(mood, look)} alt={`${titleOf(look)}, ${mood}: ${line}`} width={46} height={40} />
-          <Svg source={say.source} alt={`Level ${level}, ${Math.round(fullness)}% full. ${line}`} width={say.width} height={40} />
+          <Svg source={stage.source} alt={`${titleOf(look)}, ${mood}: ${line}`} width={stage.width} height={40} isInteractive />
           <Button key="pet" plain dimColor onPress={onPet}>
             {`♥ ${count}`}
           </Button>
