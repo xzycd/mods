@@ -58,7 +58,7 @@ test('/mochi reroll gives this project a new pet and stores it', async ($, on) =
     origin: { kind: 'composer' },
     presentation: { isFullscreen: false, columns: 120 },
   })
-  expect(text).toMatch(/^(Meet [A-Z][a-z]+, this project’s new (cat|bunny|bear|fox)|AUDA, the final boss, now rules this project)\.$/)
+  expect(text).toMatch(/^(Meet [A-Z][a-z]+, this project’s new (cat|bunny|bear|fox)|AUDA, the final boss, now rules this project|(NYX|WISP), the (night dragon|grinning cat), has moved in)\.$/)
   expect(Object.keys(saved).filter(k => k.startsWith('look:'))).toHaveLength(1)
   expect(await petSvg(ui)).not.toEqual(before)
   expect(JSON.stringify(await ui.find({ type: 'Box' }))).not.toMatch(/\\"[a-z-]+=\\"/)
@@ -93,6 +93,42 @@ test('/mochi boss summons AUDA, the final boss', async ($, on) => {
   expect(source).toContain('#FF453A')
   expect(JSON.stringify(await ui.find({ type: 'Box' }))).toContain('>BOSS<')
   await ui.unmount()
+})
+
+test('/mochi night and grin summon the two rare pets', async ($, on) => {
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', () => ({ value: { command: 'mochi' } }))
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('clock.every', () => ({ value: undefined }))
+  await $.session.start({ cwd: '/work/api', surface: 'desktop', isInteractive: true })
+
+  const night = await $.command.run({ command: 'mochi', args: 'night', ...RUN })
+  expect(night.text).toBe('NYX, the night dragon, has moved in.')
+  expect((await $.command.run({ command: 'mochi', args: 'night', ...RUN })).text).toBe('NYX is already here.')
+  const dragon = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  const nyx = await petSvg(dragon)
+  expect(nyx.alt).toMatch(/^NYX · night dragon, /)
+  expect(nyx.source).toContain('id="iris"')
+  expect(nyx.source).toContain('class="twitch"')
+  expect(nyx.source).toContain('class="pupil"')
+  expect(JSON.stringify(await dragon.find({ type: 'Box' }))).toContain('>RARE<')
+  await dragon.unmount()
+
+  const grin = await $.command.run({ command: 'mochi', args: 'grin', ...RUN })
+  expect(grin.text).toBe('WISP, the grinning cat, has moved in.')
+  const stats = await $.command.run({ command: 'mochi', args: '', ...RUN })
+  expect(stats.text).toMatch(/^WISP · grinning cat · level \d+ · /)
+  const cat = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  const wisp = await petSvg(cat)
+  expect(wisp.source).toContain('#35E0D0')
+  expect(wisp.source).toContain('@keyframes veil')
+  expect(wisp.source).not.toBe(nyx.source)
+  await cat.unmount()
 })
 
 test('/mochi hide hides the pet until asked again', async ($, on) => {

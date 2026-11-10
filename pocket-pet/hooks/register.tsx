@@ -208,6 +208,11 @@ type Kind = {
   wings?: (p: Palette) => string
   face?: (p: Palette, mood: Mood) => string
   aura?: (mood: Mood) => string
+  back?: (p: Palette) => string
+  defs?: (p: Palette) => string
+  css?: (mood: Mood) => string
+  eyes?: (p: Palette, mood: Mood) => string
+  mouth?: (p: Palette, mood: Mood) => string | undefined
 }
 
 const KINDS: Kind[] = [
@@ -306,7 +311,166 @@ const BOSS = 'AUDA'
 
 const NAMES = ['Mochi', 'Tofu', 'Bao', 'Yuzu', 'Nori', 'Miso', 'Kiwi', 'Pip', 'Dango', 'Boba', 'Udon', 'Momo', 'Kumo', 'Sumi', 'Natto', 'Ume']
 
-type Look = { name: string; palette: Palette; kind: Kind; marks: string; wear: string; isEvil: boolean }
+type Rare = { badge: string; title: string; lines: Record<Mood, string[]>; tips: string[]; border: string; plate: string }
+
+const BOSS_RARE: Rare = { badge: 'BOSS', title: 'final boss', lines: EVIL_LINES, tips: EVIL_TIPS, border: '#4A1418', plate: '#2A0C10' }
+
+type Look = { name: string; palette: Palette; kind: Kind; marks: string; wear: string; isEvil: boolean; rare?: Rare }
+
+const SLIT: Partial<Record<Mood, number>> = { busy: 0.9, worried: 1, bored: 1.7, proud: 2.1, sad: 2.4, happy: 2.8, eating: 2.8, love: 3.2, hungry: 3.2 }
+
+const gaze = (p: Palette, mood: Mood) => {
+  const glow = p.ink ?? INK
+  if (mood === 'sleepy') return `<path d="M19.6 31 Q24 35 28.4 31 M35.6 31 Q40 35 44.4 31" stroke="${glow}" stroke-width="2" fill="none" stroke-linecap="round"/>`
+  if (mood === 'dizzy') return `${SPIRAL(24)}${SPIRAL(40)}`.replaceAll(INK, glow)
+  if (mood === 'oops') return EYES.oops.replaceAll(INK, glow)
+  const rx = SLIT[mood] ?? 1.4
+  const eye = (cx: number) =>
+    `<ellipse cx="${cx}" cy="30.4" rx="4.7" ry="5.3" fill="url(#iris)" stroke="${p.deep}" stroke-width=".9"/><ellipse class="pupil" cx="${cx}" cy="30.6" rx="${rx}" ry="4.1" fill="#04060A"/><circle cx="${cx + 1.7}" cy="28" r="1.25" fill="#fff"/><circle cx="${cx - 1.5}" cy="32.8" r=".6" fill="#fff" opacity=".8"/>`
+  const lid =
+    mood === 'bored'
+      ? `<path d="M18.6 29.4 Q24 23.4 29.4 29.4 Z M34.6 29.4 Q40 23.4 45.4 29.4 Z" fill="${p.mid}"/><path d="M18.8 29.4 H29.2 M34.8 29.4 H45.2" stroke="${p.deep}" stroke-width=".9" stroke-linecap="round"/>`
+      : mood === 'sad'
+        ? `<path d="M18.6 26 L27 23.6 M45.4 26 L37 23.6" stroke="${glow}" stroke-width="1.4" stroke-linecap="round"/>`
+        : mood === 'worried'
+          ? `<path d="M18.6 23.4 L27 25.4 M45.4 23.4 L37 25.4" stroke="${glow}" stroke-width="1.4" stroke-linecap="round"/>`
+          : ''
+  return `<g class="${mood === 'busy' ? 'glance' : 'blink'}">${eye(24)}${eye(40)}</g>${lid}`
+}
+
+const iris = (inner: string, mid: string, outer: string) =>
+  `<radialGradient id="iris" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="${inner}"/><stop offset=".55" stop-color="${mid}"/><stop offset="1" stop-color="${outer}"/></radialGradient>`
+
+const halo = () => `<ellipse cx="32" cy="35" rx="29" ry="21" fill="url(#rage)" opacity=".4"/>`
+
+const PUPIL_CSS = '.pupil{animation:pupil 5.5s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes pupil{0%,70%,100%{transform:scaleX(1)}80%,90%{transform:scaleX(1.9)}}'
+
+const NIGHT: Palette = {
+  light: '#566070',
+  mid: '#20252E',
+  deep: '#0A0C11',
+  ear: '#1A1E26',
+  inner: '#7C8AA0',
+  cheek: '#3A4454',
+  accent: '#8CF04A',
+  glow: '#DCFFBE',
+  trim: '#8CF04A',
+  ink: '#8CF04A',
+  rim: '#3C4656',
+}
+
+const NIGHT_DRAGON: Kind = {
+  word: 'night dragon',
+  ears: p =>
+    `${mirror(`<g class="twitch"><path d="M19 21 Q9.5 15.5 9 6.5 Q16.5 8.5 25.5 15.5 Z" fill="${p.ear}" stroke="${p.rim}" stroke-width="1" stroke-linejoin="round"/><path d="M12.4 9.6 Q16.6 12 20.6 16.4" stroke="${p.light}" stroke-width=".9" fill="none" stroke-linecap="round" opacity=".7"/></g><path d="M25 13.6 Q24.4 8.6 27 6.4 Q29 9.4 29.6 12.4 Z" fill="${p.ear}" stroke="${p.rim}" stroke-width=".9" stroke-linejoin="round"/>`)}`,
+  tail: p =>
+    `<path d="M49 45.5 Q61 47 60 37" stroke="${p.rim}" stroke-width="5.2" fill="none" stroke-linecap="round"/><path d="M49 45.5 Q61 47 60 37" stroke="${p.mid}" stroke-width="3.6" fill="none" stroke-linecap="round"/><path d="M60 38 Q55 33 59.6 27.6 Q64.6 33 60 38 Z" fill="${p.ear}" stroke="${p.rim}" stroke-width=".9" stroke-linejoin="round"/>`,
+  wings: p =>
+    mirror(
+      `<g class="flap"><path d="M14.5 32 Q4 29 1.5 17 Q5.4 19.6 7.6 18 Q8.4 22.4 11.2 22.6 Q11 18.6 14.8 17.4 Z" fill="${p.ear}" stroke="${p.rim}" stroke-width="1" stroke-linejoin="round"/><path d="M13.6 30 Q7 26 4.4 19.6 M13.8 29 Q10.4 25.6 9.6 21.4" stroke="${p.light}" stroke-width=".7" fill="none" opacity=".6"/></g>`,
+    ),
+  face: p =>
+    `<g fill="${p.light}" opacity=".5"><ellipse cx="32" cy="18.6" rx="1.7" ry="1"/><ellipse cx="28" cy="20.6" rx="1.4" ry=".9"/><ellipse cx="36" cy="20.6" rx="1.4" ry=".9"/><ellipse cx="32" cy="22.6" rx="1.2" ry=".8"/></g><circle cx="30.4" cy="35.6" r=".55" fill="${p.deep}"/><circle cx="33.6" cy="35.6" r=".55" fill="${p.deep}"/>`,
+  back: halo,
+  defs: () => iris('#E9FF9A', '#86E63C', '#1F7A2A'),
+  css: () =>
+    `${PUPIL_CSS}.twitch{animation:twitch 6.5s ease-in-out infinite;transform-origin:20px 20px}@keyframes twitch{0%,84%,100%{transform:rotate(0)}88%{transform:rotate(-9deg)}92%{transform:rotate(4deg)}}`,
+  eyes: gaze,
+}
+
+const SMOKE: Palette = {
+  light: '#A3ABBE',
+  mid: '#667085',
+  deep: '#363C4B',
+  ear: '#5A6377',
+  inner: '#35E0D0',
+  cheek: '#35E0D0',
+  accent: '#35E0D0',
+  glow: '#CFFFF9',
+  trim: '#35E0D0',
+  ink: '#35E0D0',
+  rim: '#262B37',
+}
+
+const GRINS = new Set<Mood>(['idle', 'busy', 'dizzy', 'happy', 'proud', 'love', 'eating', 'bored'])
+const FADES = new Set<Mood>(['idle', 'bored', 'sleepy'])
+
+const GRIN_CAT: Kind = {
+  word: 'grinning cat',
+  ears: p =>
+    mirror(
+      `<path d="M16.5 21 Q12 8 15.6 6 Q19.6 5.4 28.6 14.6 Z" fill="${p.ear}" stroke="${p.rim}" stroke-width="1" stroke-linejoin="round"/><path d="M17.4 9.6 Q17.8 8 19.4 8.8 L24.4 13.6 L19.4 16.6 Z" fill="${p.inner}" opacity=".8"/>`,
+    ),
+  tail: p =>
+    `<path d="M50 45 Q61 44 59.6 33 Q59 27.6 54.4 29" stroke="${p.rim}" stroke-width="5.6" fill="none" stroke-linecap="round"/><path d="M50 45 Q61 44 59.6 33 Q59 27.6 54.4 29" stroke="${p.ear}" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M50 45 Q61 44 59.6 33 Q59 27.6 54.4 29" stroke="${p.inner}" stroke-width="4" fill="none" stroke-dasharray="2.2 3.6" stroke-dashoffset="-2"/>`,
+  back: halo,
+  defs: () => iris('#E4FFFB', '#35E0D0', '#0E7F86'),
+  css: mood =>
+    `${PUPIL_CSS}${FADES.has(mood) ? '.veil{animation:veil 10s ease-in-out infinite}@keyframes veil{0%,58%,100%{opacity:1}70%,88%{opacity:.07}}' : ''}`,
+  eyes: gaze,
+  mouth: (p, mood) =>
+    GRINS.has(mood)
+      ? `<g class="${mood === 'eating' ? 'chew' : ''}"><path d="M20.4 36.6 Q32 47.4 43.6 36.6 Q32 40.6 20.4 36.6 Z" fill="#F4FFFD" stroke="${p.deep}" stroke-width=".9" stroke-linejoin="round"/><path d="M24.6 38.3 V40.5 M28.2 39.3 V42.5 M32 39.6 V43.4 M35.8 39.3 V42.5 M39.4 38.3 V40.5" stroke="${p.deep}" stroke-width=".7"/><path d="M19.4 35.6 Q20 37 21.6 37.2 M44.6 35.6 Q44 37 42.4 37.2" stroke="${p.deep}" stroke-width=".9" fill="none" stroke-linecap="round"/></g>`
+      : undefined,
+}
+
+const STRIPES = (p: Palette) =>
+  `<g stroke="${p.inner}" stroke-width="1.7" fill="none" stroke-linecap="round" opacity=".85"><path d="M28.4 13.6 L29.4 18.4 M32 12.8 V18.6 M35.6 13.6 L34.6 18.4"/><path d="M12.6 31 Q15.6 31.6 17.4 33.4 M12 36 Q15 36 16.8 37.6 M51.4 31 Q48.4 31.6 46.6 33.4 M52 36 Q49 36 47.2 37.6"/></g>`
+
+const quiet = (lines: Partial<Record<Mood, string[]>>): Record<Mood, string[]> => ({ ...LINES, ...lines })
+
+const NYX: Look = {
+  name: 'NYX',
+  palette: NIGHT,
+  kind: NIGHT_DRAGON,
+  marks: '',
+  wear: '',
+  isEvil: false,
+  rare: {
+    badge: 'RARE',
+    title: 'night dragon',
+    border: '#24401A',
+    plate: '#0F1F0B',
+    tips: TIPS,
+    lines: quiet({
+      idle: ['{name} is watching', 'quiet as night', 'eyes on your code', 'chirp?'],
+      busy: ['tracking it…', 'pupils narrowed', 'on the hunt', 'gliding through'],
+      dizzy: ['too many tools!', 'barrel roll…', 'whoa, turbulence', 'spinning out'],
+      happy: ['happy tail thump', 'good flight', 'landed it', 'purr-growl'],
+      proud: ['wings out, chin up', 'we soar', 'best flight yet', 'streak in the sky'],
+      love: ['big eyes ♥', 'scratch the chin', 'rolls over', 'more, please'],
+      eating: ['fish? nom', 'gulp', 'crunch', 'saved you half'],
+      hungry: ['pupils huge… fish?', 'tummy growl', 'feed the dragon', 'so empty'],
+      sleepy: ['curled up, zzz', 'tail over nose', 'dreaming of clouds', 'zzz…'],
+    }),
+  },
+}
+
+const WISP: Look = {
+  name: 'WISP',
+  palette: SMOKE,
+  kind: GRIN_CAT,
+  marks: STRIPES(SMOKE),
+  wear: '',
+  isEvil: false,
+  rare: {
+    badge: 'RARE',
+    title: 'grinning cat',
+    border: '#12403D',
+    plate: '#08201F',
+    tips: TIPS,
+    lines: quiet({
+      idle: ['{name} grins at you', 'now you see me', 'which way? any way', 'just a grin, really'],
+      busy: ['curiouser…', 'watching it unfold', 'grinning at the logs', 'oh, this is good'],
+      dizzy: ['we’re all mad here', 'round and round', 'delightful chaos', 'tools, tools, tools'],
+      happy: ['told you so', 'grin widens', 'splendid', 'that’ll do nicely'],
+      proud: ['a grin without a bug', 'quite the streak', 'smugly yours', 'purrfectly done'],
+      love: ['purrrr', 'behind the ears', 'don’t stop', 'grin, grin ♥'],
+      bored: ['fading out…', 'only the grin stays', 'half here', 'wake me, or don’t'],
+      sleepy: ['gone but the grin', 'zzz…', 'vanishing nap', 'dreaming sideways'],
+    }),
+  },
+}
 
 const lookOf = (n: number): Look => {
   let rest = n >>> 0
@@ -321,21 +485,34 @@ const lookOf = (n: number): Look => {
   const wear = take(WEAR)(palette)
   const name = take(NAMES)
   if (rest % 8 === EVIL) {
-    return { name: BOSS, palette: EMBER, kind: DRAGON, marks: '', wear: '', isEvil: true }
+    return { name: BOSS, palette: EMBER, kind: DRAGON, marks: '', wear: '', isEvil: true, rare: BOSS_RARE }
   }
+  if (rest % 64 === NIGHT_AT) return NYX
+  if (rest % 64 === GRIN_AT) return WISP
   return { name, palette, kind, marks, wear, isEvil: false }
 }
 
 const LOOKS = PALETTES.length * KINDS.length * MARKS.length * WEAR.length * NAMES.length
 const EVIL = 7
+const NIGHT_AT = 3
+const GRIN_AT = 5
+const SLOTS = { boss: [8, EVIL], night: [64, NIGHT_AT], grin: [64, GRIN_AT] } as const
+const SUMMON = new Map<string, keyof typeof SLOTS>([
+  ['boss', 'boss'],
+  ['evil', 'boss'],
+  ['night', 'night'],
+  ['grin', 'grin'],
+])
 
 const isSameLook = (a: Look, b: Look) =>
   a.name === b.name && a.kind === b.kind && a.palette === b.palette && a.marks === b.marks && a.wear === b.wear
 
-const randomSeed = (isEvil: boolean) => {
+const randomSeed = (rare?: keyof typeof SLOTS) => {
   const low = Math.floor(Math.random() * LOOKS)
   const high = Math.floor(Math.random() * 64)
-  return low + LOOKS * (isEvil ? EVIL + 8 * (high % 8) : high) || 1
+  if (!rare) return low + LOOKS * high || 1
+  const [every, at] = SLOTS[rare]
+  return low + LOOKS * (at + every * (high % 8))
 }
 
 const hashOf = (text: string) => {
@@ -426,9 +603,9 @@ const bubble = ({ line, verbs, level, fullness, look }: Say) => {
   const levelX = Math.round(20 + label.length * 5.8)
   const longest = verbs ? Math.max(...verbs.map(v => v.length + 1)) : (line ?? '').length
   const badgeX = levelX + `LV${level}`.length * 5.5 + 4
-  const width = Math.ceil(Math.max(22 + Math.max(longest, 5) * 5.4, look.isEvil ? badgeX + 25 + 40 : 112))
-  const badge = look.isEvil
-    ? `<rect x="${badgeX}" y="7.4" width="25" height="9.2" rx="2.2" fill="#2A0C10" stroke="${accent}" stroke-width=".6"/><text x="${badgeX + 3.4}" y="14.4" font-size="6" font-weight="700" letter-spacing="1" fill="${glow}">BOSS</text>`
+  const width = Math.ceil(Math.max(22 + Math.max(longest, 5) * 5.4, look.rare ? badgeX + 25 + 40 : 112))
+  const badge = look.rare
+    ? `<rect x="${badgeX}" y="7.4" width="25" height="9.2" rx="2.2" fill="${look.rare.plate}" stroke="${accent}" stroke-width=".6"/><text x="${badgeX + 3.4}" y="14.4" font-size="6" font-weight="700" letter-spacing="1" fill="${glow}">${look.rare.badge}</text>`
     : ''
   const pips = Array.from({ length: 5 }, (_, i) => {
     const isLit = fullness > i * 20 + 4
@@ -437,7 +614,7 @@ const bubble = ({ line, verbs, level, fullness, look }: Say) => {
   const body = verbs ? shimmerLines(verbs, 29, width, glow) : null
   return {
     width,
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 40" width="${width}" height="40"><defs>${body?.defs ?? ''}</defs><g font-family="${MONO}"><path d="M11.5 .5 H${width - 7.5} a7 7 0 0 1 7 7 V32.5 a7 7 0 0 1 -7 7 H11.5 a7 7 0 0 1 -7 -7 V24 L.5 20 L4.5 16 V7.5 a7 7 0 0 1 7 -7 Z" fill="#0B0B0C" stroke="${look.isEvil ? '#4A1418' : '#232327'}"/><text x="14" y="15" font-size="7.5" letter-spacing="1.3" fill="${accent}">${label}</text><text x="${levelX}" y="15" font-size="7.5" letter-spacing="1" fill="#77777D">LV${level}</text>${badge}${pips}${body ? body.texts : `<text x="14" y="29" font-size="9" fill="#F2F2F2">${escape(line ?? '')}</text>`}</g></svg>`,
+    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 40" width="${width}" height="40"><defs>${body?.defs ?? ''}</defs><g font-family="${MONO}"><path d="M11.5 .5 H${width - 7.5} a7 7 0 0 1 7 7 V32.5 a7 7 0 0 1 -7 7 H11.5 a7 7 0 0 1 -7 -7 V24 L.5 20 L4.5 16 V7.5 a7 7 0 0 1 7 -7 Z" fill="#0B0B0C" stroke="${look.rare?.border ?? '#232327'}"/><text x="14" y="15" font-size="7.5" letter-spacing="1.3" fill="${accent}">${label}</text><text x="${levelX}" y="15" font-size="7.5" letter-spacing="1" fill="#77777D">LV${level}</text>${badge}${pips}${body ? body.texts : `<text x="14" y="29" font-size="9" fill="#F2F2F2">${escape(line ?? '')}</text>`}</g></svg>`,
   }
 }
 
@@ -467,6 +644,7 @@ const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil }: Look) => {
 <radialGradient id="body" cx="40%" cy="32%" r="75%"><stop offset="0" stop-color="${p.light}"/><stop offset=".55" stop-color="${p.mid}"/><stop offset="1" stop-color="${p.deep}"/></radialGradient>
 <radialGradient id="rage"><stop offset="0" stop-color="${p.accent}" stop-opacity=".55"/><stop offset="1" stop-color="${p.accent}" stop-opacity="0"/></radialGradient>
 <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation=".8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+${kind.defs?.(p) ?? ''}
 <style>
 .bob{animation:bob ${speed} ease-in-out infinite;transform-origin:32px 50px}
 .wag{animation:wag ${speed} ease-in-out infinite;transform-origin:50px 45px}
@@ -503,24 +681,28 @@ const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil }: Look) => {
 @keyframes pop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes chew{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.4)}}
 @keyframes nib{0%,100%{transform:rotate(-6deg) translateX(0)}50%{transform:rotate(4deg) translateX(-1.5px)}}
+${kind.css?.(mood) ?? ''}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </defs>
 ${isEvil ? '<ellipse class="rage" cx="32" cy="36" rx="30" ry="22" fill="url(#rage)"/>' : ''}
+${kind.back?.(p) ?? ''}
 <ellipse class="shadow" cx="32" cy="52" rx="17" ry="2.6" fill="${INK}"/>
 <g class="bob"><g class="${wrap}">
+<g class="veil">
 ${kind.wings?.(p) ?? ''}
 <g class="wag">${kind.tail(p)}</g>
 ${kind.ears(p)}
 <path d="M11 39 C11 22 21 12 32 12 C43 12 53 22 53 39 C53 47 46 50.5 32 50.5 C18 50.5 11 47 11 39 Z" fill="url(#body)" stroke="${p.rim ?? 'rgba(43,33,64,.28)'}" stroke-width="1.1"/>
-<ellipse cx="32" cy="43.6" rx="9.5" ry="5.2" fill="${isEvil ? p.inner : '#fff'}" opacity="${isEvil ? '.22' : '.3'}"/>
-<ellipse cx="23" cy="20" rx="5" ry="2.6" fill="#fff" opacity="${isEvil ? '.4' : '.7'}" transform="rotate(-24 23 20)"/>
+<ellipse cx="32" cy="43.6" rx="9.5" ry="5.2" fill="${p.ink ? p.inner : '#fff'}" opacity="${p.ink ? '.22' : '.3'}"/>
+<ellipse cx="23" cy="20" rx="5" ry="2.6" fill="#fff" opacity="${p.ink ? '.4' : '.7'}" transform="rotate(-24 23 20)"/>
 ${marks}
 ${mirror(`<ellipse cx="19.5" cy="37" rx="3.6" ry="2.1" fill="${p.cheek}" opacity="${mood === 'sad' || mood === 'hungry' ? '.3' : '.55'}"/><ellipse cx="24.5" cy="49.8" rx="4.4" ry="2.3" fill="${p.ear}" ${EDGE}/>`)}
 ${wear}
+</g>
 ${kind.face?.(p, mood) ?? ''}
-<g${isEvil ? ' filter="url(#glow)"' : ''}>${EYES[mood].replaceAll(INK, ink)}</g>
-<path class="${mouth.cls ?? ''}" d="${mouth.d}" stroke="${ink}" stroke-width="1.4" fill="${mouth.fill ?? 'none'}" stroke-linecap="round" stroke-linejoin="round"/>
+<g${p.ink ? ' filter="url(#glow)"' : ''}>${kind.eyes?.(p, mood) ?? EYES[mood].replaceAll(INK, ink)}</g>
+${kind.mouth?.(p, mood) ?? `<path class="${mouth.cls ?? ''}" d="${mouth.d}" stroke="${ink}" stroke-width="1.4" fill="${mouth.fill ?? 'none'}" stroke-linecap="round" stroke-linejoin="round"/>`}
 </g></g>
 ${EXTRA[mood]}
 ${kind.aura?.(mood) ?? ''}
@@ -551,7 +733,7 @@ const cheerLevel = ($: EngineInterface, look: Look, before: number, after: numbe
   if (after > before) $.ui.toast(look.isEvil ? `${BOSS} grows stronger · level ${after} ✦` : `${look.name} reached level ${after} ✦`)
 }
 
-const titleOf = (look: Look) => (look.isEvil ? `${BOSS} · final boss` : look.name)
+const titleOf = (look: Look) => (look.rare ? `${look.name} · ${look.rare.title}` : look.name)
 
 const stored = async ($: EngineInterface, key: string) => Number(await $.store.get(key)) || 0
 
@@ -570,8 +752,8 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'mochi',
-      description: 'Show your pet’s stats; reroll gives this project a new pet, boss summons AUDA, hide hides it',
-      argumentHint: '[reroll | boss | hide]',
+      description: 'Show your pet’s stats; reroll gives this project a new pet; boss, night and grin summon the rare ones; hide hides it',
+      argumentHint: '[reroll | boss | night | grin | hide]',
     })
     const key = `look:${hashOf(e.cwd).toString(36)}`
     const rolled = await stored($, key)
@@ -643,18 +825,21 @@ export const register: Register = on => {
       await $.store.set('hidden', hidden)
       return { text: hidden ? 'Pet hidden. /mochi hide brings it back.' : 'Pet shown.' }
     }
-    if (arg === 'reroll' || arg === 'boss' || arg === 'evil') {
-      const isBoss = arg !== 'reroll'
+    const rare = SUMMON.get(arg)
+    if (arg === 'reroll' || rare) {
       const current = lookOf(await read($, seed))
-      if (isBoss && current.isEvil) return { text: `${BOSS} already rules this project.` }
-      let fresh = randomSeed(isBoss)
-      while (isSameLook(lookOf(fresh), current)) fresh = randomSeed(isBoss)
+      let fresh = randomSeed(rare)
+      if (rare && isSameLook(lookOf(fresh), current)) {
+        return { text: current.isEvil ? `${BOSS} already rules this project.` : `${current.name} is already here.` }
+      }
+      while (isSameLook(lookOf(fresh), current)) fresh = randomSeed(rare)
       await update($, seed, () => fresh)
       await $.store.set(await read($, project), fresh)
       await update($, isHidden, () => false)
       await $.store.set('hidden', false)
       const look = lookOf(fresh)
-      return { text: look.isEvil ? `${BOSS}, the final boss, now rules this project.` : `Meet ${look.name}, this project’s new ${look.kind.word}.` }
+      if (look.isEvil) return { text: `${BOSS}, the final boss, now rules this project.` }
+      return { text: look.rare ? `${look.name}, the ${look.rare.title}, has moved in.` : `Meet ${look.name}, this project’s new ${look.kind.word}.` }
     }
     const t = Date.now()
     const petCount = await read($, pets)
@@ -685,8 +870,8 @@ export const register: Register = on => {
     const isThinking = mood === 'busy'
     const look = lookOf(await read($, seed))
     const verbs = verbsFrom(Math.floor(b.at / 1000))
-    const lines = (look.isEvil ? EVIL_LINES : LINES)[mood]
-    const tips = look.isEvil ? EVIL_TIPS : TIPS
+    const lines = (look.rare?.lines ?? LINES)[mood]
+    const tips = look.rare?.tips ?? TIPS
     const slot = Math.floor(t / 45e3)
     const isTip = (mood === 'idle' || mood === 'bored') && slot % 2 === 1
     const line = isThinking
@@ -727,7 +912,7 @@ export const register: Register = on => {
             <Text dimColor italic={isThinking}>
               {spoken}
             </Text>
-            <Text dimColor>{look.isEvil ? `lv${level} boss` : `lv${level}`}</Text>
+            <Text dimColor>{look.rare ? `lv${level} ${look.rare.badge.toLowerCase()}` : `lv${level}`}</Text>
             <Button key="pet" plain dimColor onPress={onPet}>
               {`♥ ${count}`}
             </Button>
