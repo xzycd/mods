@@ -17,6 +17,8 @@ test('the pet follows a pointer that comes near it, and reacts to a press', asyn
   const svg = await ui.find({ type: 'Svg' })
   const source = String(svg?.props.source)
   expect(svg?.props.isInteractive).toBe(true)
+  expect(source).not.toContain('id="body"')
+  expect(source).toMatch(/<style>@keyframes bob-(\w+)\{.*\.s\1\{/s)
   expect(source.match(/<rect class="z[ "]/g)).toHaveLength(15)
   expect(source).toContain('.z04:hover~.pet{--lx:1.8px;--ly:-0.9px;--tilt:5deg}')
   expect(source).toContain('.zc:hover~.pet .nz{opacity:1}')

@@ -336,9 +336,9 @@ const EMBER: Palette = {
   light: '#5A4E62',
   mid: '#2B2431',
   deep: '#121015',
-  ear: '#2B2431',
+  ear: '#451620',
   inner: '#E8323E',
-  cheek: '#FF3B4E',
+  cheek: '#B02A38',
   accent: '#FF3B3B',
   glow: '#FFB0A6',
   trim: '#FFB23E',
@@ -346,27 +346,31 @@ const EMBER: Palette = {
   rim: '#8E1F2A',
 }
 
-const SMUG = new Set<Mood>(['idle', 'busy', 'happy', 'proud', 'eating', 'bored'])
+const GLARES = new Set<Mood>(['idle', 'busy', 'happy', 'proud', 'eating'])
 const FANG = new Set<Mood>(['idle', 'busy', 'love', 'proud', 'bored'])
 const BLAZING = new Set<Mood>(['busy', 'dizzy', 'happy', 'proud'])
 
 const DRAGON: Kind = {
   word: 'dragon',
   ears: p =>
-    `${mirror(`<path d="M21.5 16 Q16.6 9.5 18.4 3.6 Q20.6 9 26.5 12.6 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".9" stroke-linejoin="round"/>`)}<path d="M28.6 12.6 L30.4 8.4 L32 11.6 L33.6 8.4 L35.4 12.6 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".8" stroke-linejoin="round"/>`,
+    `${mirror(`<path d="M20.6 18 Q12.4 13.4 13.4 2.8 Q18.6 9.4 27.4 13 Z" fill="${p.deep}" stroke="${p.rim}" stroke-width="1" stroke-linejoin="round"/><path d="M13.4 2.8 Q14.8 6.6 17.6 9.4 Q15 9.6 13.7 8.2 Q13.1 5.6 13.4 2.8 Z" fill="${p.inner}"/>`)}<path d="M29 12.9 Q30 9.4 32 7.2 Q34 9.4 35 12.9 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".8" stroke-linejoin="round"/>`,
   tail: p =>
-    `<path d="M49 45 Q60 46.5 59 37.5" stroke="${p.rim}" stroke-width="5.4" fill="none" stroke-linecap="round"/><path d="M49 45 Q60 46.5 59 37.5" stroke="${p.mid}" stroke-width="3.8" fill="none" stroke-linecap="round"/><path d="M59 31.6 L62 36.4 L59 38.6 L56 36.4 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".8" stroke-linejoin="round"/>`,
+    `<path d="M49 45.5 Q61 47 60 37" stroke="${p.rim}" stroke-width="5.2" fill="none" stroke-linecap="round"/><path d="M49 45.5 Q61 47 60 37" stroke="${p.mid}" stroke-width="3.6" fill="none" stroke-linecap="round"/><path d="M60 38.4 L55.6 34.2 L59.8 27.4 L64 34.2 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".9" stroke-linejoin="round"/>`,
   wings: p =>
     mirror(
-      `<g class="flap"><path d="M14 31 Q4.5 27 2.5 17.5 Q6 20.5 8.4 19 Q8.8 23 12 23.6 Q11.4 19.6 14.6 18.4 Z" fill="${p.inner}" stroke="${p.mid}" stroke-width="1.4" stroke-linejoin="round"/></g>`,
+      `<g class="flap"><path d="M14.5 32 Q4 29 1.5 17 Q5.4 19.6 7.6 18 Q8.4 22.4 11.2 22.6 Q11 18.6 14.8 17.4 Z" fill="${p.ear}" stroke="${p.rim}" stroke-width="1" stroke-linejoin="round"/><path d="M13.6 30 Q7 26 4.4 19.6 M13.8 29 Q10.4 25.6 9.6 21.4" stroke="${p.inner}" stroke-width=".7" fill="none" opacity=".7"/></g>`,
     ),
   face: (p, mood) =>
-    `<g stroke="${p.inner}" stroke-width="1" fill="none" opacity=".75" stroke-linecap="round"><path d="M25.5 43.4 Q32 45 38.5 43.4"/><path d="M25 46.2 Q32 48 39 46.2"/></g>${SMUG.has(mood) ? `<path d="M21.6 26 L27.4 27.6 M42.4 26 L36.6 27.6" stroke="${p.ink}" stroke-width="1.5" stroke-linecap="round"/>` : ''}${FANG.has(mood) ? '<path d="M33.2 37.7 l.8 1.9 l.8 -1.9 Z" fill="#fff"/>' : ''}`,
+    `<g stroke="${p.inner}" stroke-width="1" fill="none" opacity=".6" stroke-linecap="round"><path d="M26 44 Q32 45.4 38 44"/><path d="M26.6 46.8 Q32 48.2 37.4 46.8"/></g>${FANG.has(mood) ? '<path d="M29.4 37.6 l.9 2.1 l.9 -2.1 Z M32.8 37.6 l.9 2.1 l.9 -2.1 Z" fill="#fff"/>' : ''}`,
   aura: mood =>
     BLAZING.has(mood)
       ? '<circle class="float" cx="12" cy="22" r="1" fill="#FF5A36"/><circle class="float t2" cx="52" cy="20" r=".9" fill="#FFB23E"/><circle class="float slow" cx="46" cy="9" r=".7" fill="#FF5A36"/>'
       : '',
-  react: `${NEAR} .flap{animation:flap .14s ease-in-out infinite alternate}${NEAR} .rage{animation-duration:.5s}`,
+  defs: () => iris('#FFE7A0', '#FF5A2E', '#8A0F1C'),
+  css: () => PUPIL_CSS,
+  eyes: (p, mood) =>
+    `${gaze(p, mood)}${GLARES.has(mood) ? `<path d="M18.2 23.4 H29.8 V29 L18.2 25.4 Z M45.8 23.4 H34.2 V29 L45.8 25.4 Z" fill="${p.mid}"/><path d="M18.2 25.4 L29.8 29 M45.8 25.4 L34.2 29" stroke="${p.ink}" stroke-width="1.3" stroke-linecap="round"/>` : ''}`,
+  react: `${NEAR} .flap{animation:flap .14s ease-in-out infinite alternate}${NEAR} .rage{animation-duration:.5s}${NEAR} .pupil{animation:none;transform:scaleX(.55)}`,
 }
 
 const BOSS = 'AUDA'
@@ -851,6 +855,24 @@ const scene = (mood: Mood, look: Look, say: ReturnType<typeof bubble>) => {
   }
 }
 
+const KEYFRAMES = /@keyframes ([\w-]+)\{(?:[^{}]*\{[^{}]*\})*\}/g
+
+// The app inlines every Svg into one document, where ids, class rules and keyframes are shared by all of them.
+const scoped = (source: string) => {
+  const tag = hashOf(source).toString(36)
+  const moves = new Set<string>()
+  return source
+    .replace('<svg ', `<svg class="s${tag}" `)
+    .replace(/<style>([\s\S]*?)<\/style>/g, (_, css: string) => {
+      const frames = css.match(KEYFRAMES) ?? []
+      for (const [, name = ''] of css.matchAll(KEYFRAMES)) moves.add(name)
+      return `<style>${frames.join('')}.s${tag}{${css.replace(KEYFRAMES, '')}}</style>`
+    })
+    .replace(/(@keyframes |animation:)([\w-]+)/g, (all, lead: string, name: string) => (moves.has(name) ? `${lead}${name}-${tag}` : all))
+    .replace(/ id="([\w-]+)"/g, ` id="$1-${tag}"`)
+    .replace(/url\(#([\w-]+)\)/g, `url(#$1-${tag})`)
+}
+
 type Sheet = { look: Look; turnCount: number; petCount: number; full: number; streak: number; skin: Skin }
 
 const STATS = /level \d+ · (\d+) turns seen · (\d+) pets · (\d+)% full · streak (\d+)$/
@@ -1074,7 +1096,7 @@ export const register: Register = on => {
     const { Svg } = $.ui.resolve(e)
     return (
       <Svg
-        source={card({ look, turnCount, petCount, full, streak: run, skin: skinOf(await read($, theme)) })}
+        source={scoped(card({ look, turnCount, petCount, full, streak: run, skin: skinOf(await read($, theme)) }))}
         alt={e.props.text}
         width={364}
         height={100}
@@ -1171,7 +1193,7 @@ export const register: Register = on => {
       <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
         {below}
         <Box key="mochi" flexDirection="row" alignItems="center" gap={0}>
-          <Svg source={stage.source} alt={`${titleOf(look)}, ${mood}: ${line}`} width={stage.width} height={40} isInteractive />
+          <Svg source={scoped(stage.source)} alt={`${titleOf(look)}, ${mood}: ${line}`} width={stage.width} height={40} isInteractive />
           <Button key="pet" plain dimColor onPress={onPet}>
             {`♥ ${count}`}
           </Button>
