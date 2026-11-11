@@ -113,7 +113,7 @@ test('/mochi night and grin summon the two rare pets', async ($, on) => {
   const dragon = await $.ui.mount({ ...BAND, surface: 'desktop' })
   const nyx = await petSvg(dragon)
   expect(nyx.alt).toMatch(/^NYX · night dragon, /)
-  expect(nyx.source).toContain('id="iris"')
+  expect(nyx.source).toContain('id="iris-')
   expect(nyx.source).toContain('class="twitch"')
   expect(nyx.source).toContain('class="pupil"')
   expect(JSON.stringify(await dragon.find({ type: 'Box' }))).toContain('>RARE<')

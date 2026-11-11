@@ -254,6 +254,25 @@ const PALETTES: Palette[] = [
   { light: '#F2FFFB', mid: '#CFF5EA', deep: '#96E2CE', ear: '#BAEEDF', inner: '#6CD1B7', cheek: '#FF9FB0', accent: '#5FE3C2', glow: '#DAFFF5', trim: '#A98BFF' },
 ]
 
+type Drift = { chance: number; period: number; span: number; depth: number }
+
+const DRIFTS: Partial<Record<Mood, Drift>> = {
+  idle: { chance: 35, period: 22, span: 34, depth: 0.12 },
+  bored: { chance: 60, period: 22, span: 42, depth: 0.1 },
+  busy: { chance: 30, period: 11, span: 24, depth: 0.16 },
+}
+const GONE: Drift = { chance: 100, period: 12, span: 42, depth: 0.07 }
+const DOZE = '.veil{animation:doze 5s ease-in-out infinite}@keyframes doze{0%,100%{opacity:1}50%{opacity:.5}}'
+
+const driftCss = ({ period, span, depth }: Drift, whim: number, tint: string) => {
+  const from = 8 + ((whim >>> 8) % (84 - span))
+  const ramp = Math.min(12, span * 0.3)
+  const here = `0%,${from}%,${from + span}%,100%`
+  const away = `${(from + ramp).toFixed(1)}%,${(from + span - ramp).toFixed(1)}%`
+  const run = (name: string) => `animation:${name} ${period}s ease-in-out infinite`
+  return `.veil{${run('veil')};transform-origin:32px 34px}.dusk{${run('dusk')}}.spirit{${run('spirit')}}.lip{${run('lip')}}@keyframes veil{${here}{opacity:1;transform:none;filter:none}${away}{opacity:${depth};transform:translateY(-1.4px) scale(1.04);filter:blur(.9px)}}@keyframes dusk{${here}{opacity:1}${away}{opacity:.25}}@keyframes spirit{${here}{opacity:0}${away}{opacity:1}}@keyframes lip{${away}{stroke:${tint}}}`
+}
+
 type Kind = {
   word: string
   ears: (p: Palette) => string
@@ -267,6 +286,7 @@ type Kind = {
   eyes?: (p: Palette, mood: Mood) => string
   mouth?: (p: Palette, mood: Mood) => string | undefined
   react?: string
+  drifts?: Partial<Record<Mood, Drift>>
 }
 
 const NEAR = '.z:hover~.pet'
@@ -336,9 +356,9 @@ const EMBER: Palette = {
   light: '#5A4E62',
   mid: '#2B2431',
   deep: '#121015',
-  ear: '#2B2431',
+  ear: '#451620',
   inner: '#E8323E',
-  cheek: '#FF3B4E',
+  cheek: '#B02A38',
   accent: '#FF3B3B',
   glow: '#FFB0A6',
   trim: '#FFB23E',
@@ -346,27 +366,31 @@ const EMBER: Palette = {
   rim: '#8E1F2A',
 }
 
-const SMUG = new Set<Mood>(['idle', 'busy', 'happy', 'proud', 'eating', 'bored'])
+const GLARES = new Set<Mood>(['idle', 'busy', 'happy', 'proud', 'eating'])
 const FANG = new Set<Mood>(['idle', 'busy', 'love', 'proud', 'bored'])
 const BLAZING = new Set<Mood>(['busy', 'dizzy', 'happy', 'proud'])
 
 const DRAGON: Kind = {
   word: 'dragon',
   ears: p =>
-    `${mirror(`<path d="M21.5 16 Q16.6 9.5 18.4 3.6 Q20.6 9 26.5 12.6 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".9" stroke-linejoin="round"/>`)}<path d="M28.6 12.6 L30.4 8.4 L32 11.6 L33.6 8.4 L35.4 12.6 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".8" stroke-linejoin="round"/>`,
+    `${mirror(`<path d="M20.6 18 Q12.4 13.4 13.4 2.8 Q18.6 9.4 27.4 13 Z" fill="${p.deep}" stroke="${p.rim}" stroke-width="1" stroke-linejoin="round"/><path d="M13.4 2.8 Q14.8 6.6 17.6 9.4 Q15 9.6 13.7 8.2 Q13.1 5.6 13.4 2.8 Z" fill="${p.inner}"/>`)}<path d="M29 12.9 Q30 9.4 32 7.2 Q34 9.4 35 12.9 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".8" stroke-linejoin="round"/>`,
   tail: p =>
-    `<path d="M49 45 Q60 46.5 59 37.5" stroke="${p.rim}" stroke-width="5.4" fill="none" stroke-linecap="round"/><path d="M49 45 Q60 46.5 59 37.5" stroke="${p.mid}" stroke-width="3.8" fill="none" stroke-linecap="round"/><path d="M59 31.6 L62 36.4 L59 38.6 L56 36.4 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".8" stroke-linejoin="round"/>`,
+    `<path d="M49 45.5 Q61 47 60 37" stroke="${p.rim}" stroke-width="5.2" fill="none" stroke-linecap="round"/><path d="M49 45.5 Q61 47 60 37" stroke="${p.mid}" stroke-width="3.6" fill="none" stroke-linecap="round"/><path d="M60 38.4 L55.6 34.2 L59.8 27.4 L64 34.2 Z" fill="${p.inner}" stroke="${p.rim}" stroke-width=".9" stroke-linejoin="round"/>`,
   wings: p =>
     mirror(
-      `<g class="flap"><path d="M14 31 Q4.5 27 2.5 17.5 Q6 20.5 8.4 19 Q8.8 23 12 23.6 Q11.4 19.6 14.6 18.4 Z" fill="${p.inner}" stroke="${p.mid}" stroke-width="1.4" stroke-linejoin="round"/></g>`,
+      `<g class="flap"><path d="M14.5 32 Q4 29 1.5 17 Q5.4 19.6 7.6 18 Q8.4 22.4 11.2 22.6 Q11 18.6 14.8 17.4 Z" fill="${p.ear}" stroke="${p.rim}" stroke-width="1" stroke-linejoin="round"/><path d="M13.6 30 Q7 26 4.4 19.6 M13.8 29 Q10.4 25.6 9.6 21.4" stroke="${p.inner}" stroke-width=".7" fill="none" opacity=".7"/></g>`,
     ),
   face: (p, mood) =>
-    `<g stroke="${p.inner}" stroke-width="1" fill="none" opacity=".75" stroke-linecap="round"><path d="M25.5 43.4 Q32 45 38.5 43.4"/><path d="M25 46.2 Q32 48 39 46.2"/></g>${SMUG.has(mood) ? `<path d="M21.6 26 L27.4 27.6 M42.4 26 L36.6 27.6" stroke="${p.ink}" stroke-width="1.5" stroke-linecap="round"/>` : ''}${FANG.has(mood) ? '<path d="M33.2 37.7 l.8 1.9 l.8 -1.9 Z" fill="#fff"/>' : ''}`,
+    `<g stroke="${p.inner}" stroke-width="1" fill="none" opacity=".6" stroke-linecap="round"><path d="M26 44 Q32 45.4 38 44"/><path d="M26.6 46.8 Q32 48.2 37.4 46.8"/></g>${FANG.has(mood) ? '<path d="M29.4 37.6 l.9 2.1 l.9 -2.1 Z M32.8 37.6 l.9 2.1 l.9 -2.1 Z" fill="#fff"/>' : ''}`,
   aura: mood =>
     BLAZING.has(mood)
       ? '<circle class="float" cx="12" cy="22" r="1" fill="#FF5A36"/><circle class="float t2" cx="52" cy="20" r=".9" fill="#FFB23E"/><circle class="float slow" cx="46" cy="9" r=".7" fill="#FF5A36"/>'
       : '',
-  react: `${NEAR} .flap{animation:flap .14s ease-in-out infinite alternate}${NEAR} .rage{animation-duration:.5s}`,
+  defs: () => iris('#FFE7A0', '#FF5A2E', '#8A0F1C'),
+  css: () => PUPIL_CSS,
+  eyes: (p, mood) =>
+    `${gaze(p, mood)}${GLARES.has(mood) ? `<path d="M18.2 23.4 H29.8 V29 L18.2 25.4 Z M45.8 23.4 H34.2 V29 L45.8 25.4 Z" fill="${p.mid}"/><path d="M18.2 25.4 L29.8 29 M45.8 25.4 L34.2 29" stroke="${p.ink}" stroke-width="1.3" stroke-linecap="round"/>` : ''}`,
+  react: `${NEAR} .flap{animation:flap .14s ease-in-out infinite alternate}${NEAR} .rage{animation-duration:.5s}${NEAR} .pupil{animation:none;transform:scaleX(.55)}`,
 }
 
 const BOSS = 'AUDA'
@@ -456,7 +480,6 @@ const SMOKE: Palette = {
 }
 
 const GRINS = new Set<Mood>(['idle', 'busy', 'dizzy', 'happy', 'proud', 'love', 'eating', 'bored'])
-const FADES = new Set<Mood>(['idle', 'bored', 'sleepy'])
 
 const GRIN_CAT: Kind = {
   word: 'grinning cat',
@@ -468,14 +491,14 @@ const GRIN_CAT: Kind = {
     `<path d="M50 45 Q61 44 59.6 33 Q59 27.6 54.4 29" stroke="${p.rim}" stroke-width="5.6" fill="none" stroke-linecap="round"/><path d="M50 45 Q61 44 59.6 33 Q59 27.6 54.4 29" stroke="${p.ear}" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M50 45 Q61 44 59.6 33 Q59 27.6 54.4 29" stroke="${p.inner}" stroke-width="4" fill="none" stroke-dasharray="2.2 3.6" stroke-dashoffset="-2"/>`,
   back: halo,
   defs: () => iris('#E4FFFB', '#35E0D0', '#0E7F86'),
-  css: mood =>
-    `${PUPIL_CSS}${FADES.has(mood) ? '.veil{animation:veil 10s ease-in-out infinite}@keyframes veil{0%,58%,100%{opacity:1}70%,88%{opacity:.07}}' : ''}`,
+  css: () => PUPIL_CSS,
   eyes: gaze,
   mouth: (p, mood) =>
     GRINS.has(mood)
       ? `<g class="grin"><g class="${mood === 'eating' ? 'chew' : ''}"><path d="M20.4 36.6 Q32 47.4 43.6 36.6 Q32 40.6 20.4 36.6 Z" fill="#F4FFFD" stroke="${p.deep}" stroke-width=".9" stroke-linejoin="round"/><path d="M24.6 38.3 V40.5 M28.2 39.3 V42.5 M32 39.6 V43.4 M35.8 39.3 V42.5 M39.4 38.3 V40.5" stroke="${p.deep}" stroke-width=".7"/><path d="M19.4 35.6 Q20 37 21.6 37.2 M44.6 35.6 Q44 37 42.4 37.2" stroke="${p.deep}" stroke-width=".9" fill="none" stroke-linecap="round"/></g></g>`
       : undefined,
-  react: `.grin{transform-box:fill-box;transform-origin:center;transition:transform .2s cubic-bezier(.3,1.8,.5,1)}${NEAR} .veil{animation:none;opacity:1}${NEAR} .grin{transform:scale(1.12)}`,
+  drifts: { idle: GONE, bored: GONE, sleepy: GONE },
+  react: `.grin{transform-box:fill-box;transform-origin:center;transition:transform .2s cubic-bezier(.3,1.8,.5,1)}${NEAR} .grin{transform:scale(1.12)}`,
 }
 
 const STRIPES = (p: Palette) =>
@@ -704,7 +727,7 @@ const NUZZLES = new Set<Mood>(['idle', 'busy', 'sad', 'hungry', 'bored', 'worrie
 const HEART = (x: number, y: number, s: number, color: string) =>
   `<path d="M${x} ${y} l${-3 * s} ${-3 * s} a${1.8 * s} ${1.8 * s} 0 0 1 ${3 * s} ${-2 * s} a${1.8 * s} ${1.8 * s} 0 0 1 ${3 * s} ${2 * s}z" fill="${color}"/>`
 
-const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil }: Look) => {
+const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil }: Look, whim = 0) => {
   const isFrantic = mood === 'busy' || mood === 'dizzy'
   const speed = isFrantic
     ? isEvil
@@ -731,6 +754,9 @@ const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil }: Look) => {
     ? `<path d="M19.6 32 Q24 26.6 28.4 32 M35.6 32 Q40 26.6 44.4 32" stroke="${ink}" stroke-width="2" fill="none" stroke-linecap="round"/>`
     : ARCS.replaceAll(INK, ink)
   const nuzzle = NUZZLES.has(mood) ? `<g class="nz">${squint}</g>` : ''
+  const pace = { ...DRIFTS, ...kind.drifts }[mood]
+  const drift = pace && whim > 0 && whim % 100 < pace.chance ? pace : undefined
+  const spirit = drift && !kind.eyes ? `<g class="spirit"><g class="look">${EYES[mood].replaceAll(INK, p.accent)}</g></g>` : ''
   return `<svg xmlns="http://www.w3.org/2000/svg" class="pet" viewBox="0 0 64 56" width="46" height="40">
 <defs>
 <radialGradient id="body" cx="40%" cy="32%" r="75%"><stop offset="0" stop-color="${p.light}"/><stop offset=".55" stop-color="${p.mid}"/><stop offset="1" stop-color="${p.deep}"/></radialGradient>
@@ -774,6 +800,8 @@ ${kind.defs?.(p) ?? ''}
 @keyframes chew{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.4)}}
 @keyframes nib{0%,100%{transform:rotate(-6deg) translateX(0)}50%{transform:rotate(4deg) translateX(-1.5px)}}
 ${kind.css?.(mood) ?? ''}
+${drift ? driftCss(drift, whim, p.accent) : mood === 'sleepy' && whim > 0 ? DOZE : ''}
+.spirit{opacity:0}
 .lean{transform:rotate(var(--tilt,0deg));transform-origin:32px 50px;transition:transform .3s cubic-bezier(.3,1.5,.5,1)}
 .squash{transform-origin:32px 50px;transition:transform .45s cubic-bezier(.2,2.2,.4,1)}
 .ears,.swish{transition:transform .25s cubic-bezier(.3,1.8,.5,1)}
@@ -785,6 +813,7 @@ ${isTracked ? '.look{transform:translate(var(--lx,0px),var(--ly,0px));transition
 ${NEAR} .ears{transform:translateY(-1.3px)}
 ${NEAR} .swish{transform:rotate(-12deg)}
 ${NEAR} .cheek{opacity:.9}
+${NEAR} :is(.veil,.dusk,.spirit,.lip){animation:none}
 ${nuzzle ? `${ON_FACE} .nz{opacity:1}${ON_FACE} .eyes{opacity:0}` : ''}
 .walk:active .squash{transform:scale(1.12,.84);transition-duration:.06s}
 .walk:active .tap{opacity:1;transform:none;transition-duration:.05s;transition-delay:0s}
@@ -794,7 +823,7 @@ ${kind.react ?? ''}
 </defs>
 ${isEvil ? '<ellipse class="rage" cx="32" cy="36" rx="30" ry="22" fill="url(#rage)"/>' : ''}
 ${kind.back?.(p) ?? ''}
-<ellipse class="shadow" cx="32" cy="52" rx="17" ry="2.6" fill="${INK}"/>
+<g class="dusk"><ellipse class="shadow" cx="32" cy="52" rx="17" ry="2.6" fill="${INK}"/></g>
 <g class="bob"><g class="lean"><g class="squash"><g class="${wrap}">
 <g class="veil">
 ${kind.wings?.(p) ?? ''}
@@ -806,10 +835,10 @@ ${kind.wings?.(p) ?? ''}
 ${marks}
 ${mirror(`<ellipse class="cheek" cx="19.5" cy="37" rx="3.6" ry="2.1" fill="${p.cheek}" opacity="${mood === 'sad' || mood === 'hungry' ? '.3' : '.55'}"/><ellipse cx="24.5" cy="49.8" rx="4.4" ry="2.3" fill="${p.ear}" ${EDGE}/>`)}
 ${wear}
-</g>
 ${kind.face?.(p, mood) ?? ''}
-<g${p.ink ? ' filter="url(#glow)"' : ''}><g class="eyes">${eyes}</g>${nuzzle}</g>
-${kind.mouth?.(p, mood) ?? `<path class="${mouth.cls ?? ''}" d="${mouth.d}" stroke="${ink}" stroke-width="1.4" fill="${mouth.fill ?? 'none'}" stroke-linecap="round" stroke-linejoin="round"/>`}
+</g>
+<g${p.ink ? ' filter="url(#glow)"' : ''}><g class="eyes">${eyes}${spirit}</g>${nuzzle}</g>
+${kind.mouth?.(p, mood) ?? `<path class="${mouth.cls ?? 'lip'}" d="${mouth.d}" stroke="${ink}" stroke-width="1.4" fill="${mouth.fill ?? 'none'}" stroke-linecap="round" stroke-linejoin="round"/>`}
 </g></g></g></g>
 ${EXTRA[mood]}
 ${kind.aura?.(mood) ?? ''}
@@ -843,12 +872,30 @@ const ZONES = zones()
 
 const STROLL = `.walk{animation:stroll 26s ease-in-out infinite}.hop{animation:hop 26s linear infinite}.walk:hover,.walk:hover .hop{animation-play-state:paused}@keyframes stroll{0%,34%,88%,100%{transform:translateX(${YARD}px)}44%,78%{transform:translateX(0)}}@keyframes hop{0%,34%,39%,44%,78%,83%,88%,100%{transform:translateY(0)}36.5%,41.5%,80.5%,85.5%{transform:translateY(-2.6px)}}`
 
-const scene = (mood: Mood, look: Look, say: ReturnType<typeof bubble>) => {
+const scene = (mood: Mood, look: Look, say: ReturnType<typeof bubble>, whim: number) => {
   const width = YARD + PET_W + say.width
   return {
     width,
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 40" width="${width}" height="40"><defs>${say.defs}<style>.z{fill:transparent;pointer-events:all;cursor:pointer}.pet,.say{pointer-events:none}.walk{transform:translateX(${YARD}px)}${ZONES.rules}${ROAMS.has(mood) ? STROLL : ''}@media (prefers-reduced-motion:reduce){.walk,.hop{animation:none!important}}</style></defs><g class="say" transform="translate(${YARD + PET_W} 0)">${say.body}</g><g class="walk"><g class="hop">${ZONES.rects}${pet(mood, look)}</g></g></svg>`,
+    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 40" width="${width}" height="40"><defs>${say.defs}<style>.z{fill:transparent;pointer-events:all;cursor:pointer}.pet,.say{pointer-events:none}.walk{transform:translateX(${YARD}px)}${ZONES.rules}${ROAMS.has(mood) ? STROLL : ''}@media (prefers-reduced-motion:reduce){.walk,.hop{animation:none!important}}</style></defs><g class="say" transform="translate(${YARD + PET_W} 0)">${say.body}</g><g class="walk"><g class="hop">${ZONES.rects}${pet(mood, look, whim)}</g></g></svg>`,
   }
+}
+
+const KEYFRAMES = /@keyframes ([\w-]+)\{(?:[^{}]*\{[^{}]*\})*\}/g
+
+// The app inlines every Svg into one document, where ids, class rules and keyframes are shared by all of them.
+const scoped = (source: string) => {
+  const tag = hashOf(source).toString(36)
+  const moves = new Set<string>()
+  return source
+    .replace('<svg ', `<svg class="s${tag}" `)
+    .replace(/<style>([\s\S]*?)<\/style>/g, (_, css: string) => {
+      const frames = css.match(KEYFRAMES) ?? []
+      for (const [, name = ''] of css.matchAll(KEYFRAMES)) moves.add(name)
+      return `<style>${frames.join('')}.s${tag}{${css.replace(KEYFRAMES, '')}}</style>`
+    })
+    .replace(/(@keyframes |animation:)([\w-]+)/g, (all, lead: string, name: string) => (moves.has(name) ? `${lead}${name}-${tag}` : all))
+    .replace(/ id="([\w-]+)"/g, ` id="$1-${tag}"`)
+    .replace(/url\(#([\w-]+)\)/g, `url(#$1-${tag})`)
 }
 
 type Sheet = { look: Look; turnCount: number; petCount: number; full: number; streak: number; skin: Skin }
@@ -1074,7 +1121,7 @@ export const register: Register = on => {
     const { Svg } = $.ui.resolve(e)
     return (
       <Svg
-        source={card({ look, turnCount, petCount, full, streak: run, skin: skinOf(await read($, theme)) })}
+        source={scoped(card({ look, turnCount, petCount, full, streak: run, skin: skinOf(await read($, theme)) }))}
         alt={e.props.text}
         width={364}
         height={100}
@@ -1166,12 +1213,12 @@ export const register: Register = on => {
     }
 
     const { Box, Button, Svg } = $.ui.resolve(e)
-    const stage = scene(mood, look, bubble({ line, verbs: isThinking ? verbs : undefined, level, share, fullness, look, skin: skinOf(await read($, theme)) }))
+    const stage = scene(mood, look, bubble({ line, verbs: isThinking ? verbs : undefined, level, share, fullness, look, skin: skinOf(await read($, theme)) }), hashOf(`${look.name}:${slot}`) || 1)
     return (
       <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
         {below}
         <Box key="mochi" flexDirection="row" alignItems="center" gap={0}>
-          <Svg source={stage.source} alt={`${titleOf(look)}, ${mood}: ${line}`} width={stage.width} height={40} isInteractive />
+          <Svg source={scoped(stage.source)} alt={`${titleOf(look)}, ${mood}: ${line}`} width={stage.width} height={40} isInteractive />
           <Button key="pet" plain dimColor onPress={onPet}>
             {`♥ ${count}`}
           </Button>
