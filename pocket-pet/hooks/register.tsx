@@ -257,9 +257,9 @@ const PALETTES: Palette[] = [
 type Drift = { chance: number; period: number; span: number; depth: number }
 
 const DRIFTS: Partial<Record<Mood, Drift>> = {
-  idle: { chance: 35, period: 22, span: 34, depth: 0.12 },
-  bored: { chance: 60, period: 22, span: 42, depth: 0.1 },
-  busy: { chance: 30, period: 11, span: 24, depth: 0.16 },
+  idle: { chance: 65, period: 16, span: 34, depth: 0.12 },
+  bored: { chance: 85, period: 16, span: 42, depth: 0.1 },
+  busy: { chance: 55, period: 9, span: 24, depth: 0.16 },
 }
 const GONE: Drift = { chance: 100, period: 12, span: 42, depth: 0.07 }
 const DOZE = '.veil{animation:doze 5s ease-in-out infinite}@keyframes doze{0%,100%{opacity:1}50%{opacity:.5}}'
