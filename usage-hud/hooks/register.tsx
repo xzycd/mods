@@ -272,7 +272,7 @@ const hhmm = (ms: number) => {
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 
-const BLINK = `<style>.b{animation:b 1s steps(2,start) infinite}@keyframes b{to{opacity:.3}}@media (prefers-reduced-motion:reduce){.b{animation:none}}</style>`
+const BLINK = `<style>.hud-b{animation:hud-b 1s steps(2,start) infinite}@keyframes hud-b{to{opacity:.3}}@media (prefers-reduced-motion:reduce){.hud-b{animation:none}}</style>`
 
 type Tile = {
   label: string
@@ -302,7 +302,7 @@ const tile = (th: Theme, { label, meta, value, unit, fill, marker, isAlarm, isEm
       ? ''
       : `<rect x="${(x0 + clamp01(marker) * bar - 0.6).toFixed(2)}" y="30" width="1.2" height="7" fill="${th.text}"/>`
   const ink = isEmpty ? th.mute : isAlarm ? th.alarm : th.text
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TILE_W} ${TILE_H}" width="${TILE_W}" height="${TILE_H}">${BLINK}<g font-family="${MONO}" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${TILE_W - 1}" height="${TILE_H - 1}" rx="7" fill="${th.ink}" stroke="${isAlarm ? th.alarm : th.edge}" stroke-opacity="${isAlarm ? 0.55 : 1}"/><rect class="${isAlarm ? 'b' : ''}" x="8" y="7.5" width="3" height="3" fill="${isEmpty ? th.off : lead}"/><text x="15" y="11" font-size="7.5" letter-spacing="1.3" fill="${th.mute}">${label}</text><text x="${TILE_W - 8}" y="11" font-size="7.5" text-anchor="end" fill="${th.mute}">${meta}</text><text class="${isAlarm ? 'b' : ''}" x="8" y="26" font-size="14" font-weight="600" fill="${ink}">${value}${unit ? `<tspan font-size="8" fill="${th.mute}" dx="1">${unit}</tspan>` : ''}</text>${segs}${tick}</g></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TILE_W} ${TILE_H}" width="${TILE_W}" height="${TILE_H}">${BLINK}<g font-family="${MONO}" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${TILE_W - 1}" height="${TILE_H - 1}" rx="7" fill="${th.ink}" stroke="${isAlarm ? th.alarm : th.edge}" stroke-opacity="${isAlarm ? 0.55 : 1}"/><rect class="${isAlarm ? 'hud-b' : ''}" x="8" y="7.5" width="3" height="3" fill="${isEmpty ? th.off : lead}"/><text x="15" y="11" font-size="7.5" letter-spacing="1.3" fill="${th.mute}">${label}</text><text x="${TILE_W - 8}" y="11" font-size="7.5" text-anchor="end" fill="${th.mute}">${meta}</text><text class="${isAlarm ? 'hud-b' : ''}" x="8" y="26" font-size="14" font-weight="600" fill="${ink}">${value}${unit ? `<tspan font-size="8" fill="${th.mute}" dx="1">${unit}</tspan>` : ''}</text>${segs}${tick}</g></svg>`
 }
 
 type Readout = { key: string; value: string; note?: string; isAlarm?: boolean }
