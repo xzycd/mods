@@ -58,7 +58,7 @@ test('/mochi reroll gives this project a new pet and stores it', async ($, on) =
     origin: { kind: 'composer' },
     presentation: { isFullscreen: false, columns: 120 },
   })
-  expect(text).toMatch(/^(Meet [A-Z][a-z]+, this project’s new (cat|bunny|bear|fox)|AUDA, the final boss, now rules this project|(NYX|WISP), the (night dragon|grinning cat), has moved in)\.$/)
+  expect(text).toMatch(/^(Meet [A-Z][a-z]+, this project’s new (cat|bunny|bear|fox|axolotl|chick|bee)|AUDA, the final boss, now rules this project|(NYX|WISP), the (night dragon|grinning cat), has moved in)\.$/)
   expect(Object.keys(saved).filter(k => k.startsWith('look:'))).toHaveLength(1)
   expect(await petSvg(ui)).not.toEqual(before)
   expect(JSON.stringify(await ui.find({ type: 'Box' }))).not.toMatch(/\\"[a-z-]+=\\"/)
@@ -156,5 +156,43 @@ test('/mochi hide hides the pet until asked again', async ($, on) => {
   await $.command.run({ command: 'mochi', args: 'hide', ...RUN })
   ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
   expect(await ui.find({ type: 'Button', key: 'pet' })).toBeTruthy()
+  await ui.unmount()
+})
+
+test('⋯ opens a menu that swaps the pet without a command', async ($, on) => {
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', () => ({ value: { command: 'mochi' } }))
+  on('store.get', () => ({ value: undefined }))
+  const saved: Record<string, unknown> = {}
+  on('store.set', (_, e) => {
+    saved[e.key] = e.value
+    return { value: undefined }
+  })
+  on('clock.every', () => ({ value: undefined }))
+  await $.session.start({ cwd: '/work/shop', surface: 'desktop', isInteractive: true })
+
+  for (const surface of ['desktop', 'terminal'] as const) {
+    const ui = await $.ui.mount({ ...BAND, surface })
+    expect(await ui.find({ type: 'Button', key: 'reroll' })).toBeFalsy()
+    await ui.press({ key: 'more' })
+    for (const key of ['reroll', 'boss', 'night', 'grin', 'theme', 'hide']) expect(await ui.find({ type: 'Button', key })).toBeTruthy()
+    await ui.press({ key: 'more' })
+    expect(await ui.find({ type: 'Button', key: 'reroll' })).toBeFalsy()
+    await ui.unmount()
+  }
+
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  await ui.press({ key: 'more' })
+  await ui.press({ key: 'night' })
+  expect((await petSvg(ui)).alt).toMatch(/^NYX · night dragon, /)
+  await ui.press({ key: 'reroll' })
+  expect((await petSvg(ui)).alt).not.toMatch(/^NYX/)
+  expect(typeof saved.dry).toBe('number')
+  await ui.press({ key: 'theme' })
+  expect(saved.theme).toBe('slate')
   await ui.unmount()
 })

@@ -59,3 +59,33 @@ test('a busy turn shows the busy face on the terminal', async ($, on) => {
   expect((await ui.find({ type: 'Text', text: /ᴗ•́/ }))?.text).toContain('و')
   await ui.unmount()
 })
+
+test('a press on the pet counts, and a level 10 pet can be reborn with a star', async ($, on) => {
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+  const store = new Map<string, unknown>([['turns', 300]])
+  on('store.get', (_, e) => ({ value: store.get(e.key) }))
+  on('store.set', (_, e) => {
+    store.set(e.key, e.value)
+    return { value: undefined }
+  })
+  on('clock.after', () => ({ value: undefined }))
+
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  await ui.press({ key: 'tap' })
+  expect((await ui.find({ type: 'Button', key: 'pet' }))?.text).toBe('♥ 1')
+  expect(String((await ui.find({ type: 'Svg' }))?.props.source)).toContain('>LV11<')
+  await ui.press({ key: 'more' })
+  await ui.press({ key: 'rebirth' })
+  expect(store.get('base')).toBe(300)
+  expect(store.get('stars')).toBe(1)
+  expect(store.get('dry')).toBe(6)
+  const source = String((await ui.find({ type: 'Svg' }))?.props.source)
+  expect(source).toContain('>LV1<')
+  expect(source).toContain('★<')
+  expect(source).toContain('matrix(0.84 0 0 0.84')
+  expect(await ui.find({ type: 'Button', key: 'rebirth' })).toBeFalsy()
+  await ui.unmount()
+})
