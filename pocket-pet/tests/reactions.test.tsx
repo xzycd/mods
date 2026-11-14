@@ -24,6 +24,10 @@ test('the pet follows a pointer that comes near it, and reacts to a press', asyn
   expect(source).toContain('.zc:hover~.pet .nz{opacity:1}')
   expect(source).toContain('.walk:active .squash')
   expect(source).toContain('@keyframes stroll')
+  expect(source).toMatch(/@keyframes turn-\w+\{[^@]*scaleX\(-1\)/)
+  expect(source).toMatch(/\.c:active\.c3:hover \.carry:not\(:has\(\.z:hover\)\)\{transform:translateX\(-15px\)\}/)
+  expect(source).toContain('class="foot f1"')
+  expect(source).toMatch(/@keyframes fid-\w+\{/)
   await ui.unmount()
 
   const working = await $.ui.mount({ ...BAND, surface: 'desktop', props: { ...BAND.props, isWorking: true } })

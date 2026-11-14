@@ -21,6 +21,10 @@ declare module 'claude-code' {
       project: string
       isHidden: boolean
       theme: string
+      isOpen: boolean
+      bornAt: number
+      cause: string
+      theme: string
     }
   }
 }
