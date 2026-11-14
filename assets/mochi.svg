@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Mochi, the pocket pet">
+<defs><radialGradient id="body" cx="40%" cy="32%" r="75%"><stop offset="0" stop-color="#FFF6FA"/><stop offset=".55" stop-color="#FFD9E8"/><stop offset="1" stop-color="#FFB3D0"/></radialGradient>
+<radialGradient id="aura"><stop offset="0" stop-color="#FF6FA5" stop-opacity=".42"/><stop offset="1" stop-color="#FF6FA5" stop-opacity="0"/></radialGradient>
+<linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#17151A"/><stop offset="1" stop-color="#0B0B0C"/></linearGradient><style>.bob{animation:bob 2.6s ease-in-out infinite;transform-origin:32px 50px}
+.wag{animation:wag 2.6s ease-in-out infinite;transform-origin:50px 45px}
+.shadow{animation:shadow 2.6s ease-in-out infinite;transform-origin:32px 52px}
+.blink{animation:blink 4.2s infinite;transform-origin:32px 31px}
+.twinkle{animation:twinkle 1.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.t2{animation-delay:.9s}
+@keyframes bob{0%,100%{transform:translateY(0) scale(1,1)}50%{transform:translateY(-1.6px) scale(.97,1.03)}}
+@keyframes wag{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+@keyframes shadow{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.82)}}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes twinkle{0%,100%{transform:scale(.6);opacity:.4}50%{transform:scale(1.1);opacity:1}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}</style></defs>
+<rect x="1" y="1" width="254" height="254" rx="58" fill="url(#tile)" stroke="#232327" stroke-width="2"/>
+<ellipse cx="128" cy="140" rx="112" ry="92" fill="url(#aura)"/>
+<g transform="translate(204 62) scale(1.1)"><path class="twinkle " d="M0 -10 Q1.6 -1.6 10 0 Q1.6 1.6 0 10 Q-1.6 1.6 -10 0 Q-1.6 -1.6 0 -10Z" fill="#FFD166"/></g><g transform="translate(50 84) scale(0.7)"><path class="twinkle t2" d="M0 -10 Q1.6 -1.6 10 0 Q1.6 1.6 0 10 Q-1.6 1.6 -10 0 Q-1.6 -1.6 0 -10Z" fill="#FF9EC4"/></g>
+<g transform="translate(22 38) scale(3.3)"><ellipse class="shadow" cx="32" cy="52" rx="17" ry="2.6" fill="#000" opacity=".45"/>
+<g class="bob">
+<g class="wag"><path d="M50 45 Q59.5 44 58.5 35 Q58 30.5 54.5 31.5" stroke="rgba(43,33,64,.28)" stroke-width="4.6" fill="none" stroke-linecap="round"/><path d="M50 45 Q59.5 44 58.5 35 Q58 30.5 54.5 31.5" stroke="#FFC9DD" stroke-width="3" fill="none" stroke-linecap="round"/></g>
+<path d="M17.5 20 Q14.5 9.5 18 8.2 Q21.5 7.4 28 14.5 Z" fill="#FFC9DD" stroke="rgba(43,33,64,.28)" stroke-width="1"/><path d="M19.2 11.6 Q19.6 10.2 21 11 L24.6 14.4 L20.4 16.4 Z" fill="#FF9EC4" opacity=".7"/><g transform="matrix(-1 0 0 1 64 0)"><path d="M17.5 20 Q14.5 9.5 18 8.2 Q21.5 7.4 28 14.5 Z" fill="#FFC9DD" stroke="rgba(43,33,64,.28)" stroke-width="1"/><path d="M19.2 11.6 Q19.6 10.2 21 11 L24.6 14.4 L20.4 16.4 Z" fill="#FF9EC4" opacity=".7"/></g>
+<path d="M11 39 C11 22 21 12 32 12 C43 12 53 22 53 39 C53 47 46 50.5 32 50.5 C18 50.5 11 47 11 39 Z" fill="url(#body)" stroke="rgba(43,33,64,.28)" stroke-width="1.1"/>
+<ellipse cx="32" cy="43.6" rx="9.5" ry="5.2" fill="#fff" opacity=".3"/>
+<ellipse cx="23" cy="20" rx="5" ry="2.6" fill="#fff" opacity=".7" transform="rotate(-24 23 20)"/>
+<ellipse cx="19.5" cy="37" rx="3.6" ry="2.1" fill="#FF8FB3" opacity=".55"/><ellipse cx="24.5" cy="49.8" rx="4.4" ry="2.3" fill="#FFC9DD" stroke="rgba(43,33,64,.28)" stroke-width="1"/><g transform="matrix(-1 0 0 1 64 0)"><ellipse cx="19.5" cy="37" rx="3.6" ry="2.1" fill="#FF8FB3" opacity=".55"/><ellipse cx="24.5" cy="49.8" rx="4.4" ry="2.3" fill="#FFC9DD" stroke="rgba(43,33,64,.28)" stroke-width="1"/></g>
+<path d="M32 12.5 Q31.6 9 33 6.6" stroke="#5E9E4A" stroke-width="1.2" fill="none" stroke-linecap="round"/><path d="M33 7 Q36.8 3.8 39.6 6 Q36.6 9.6 33 7 Z" fill="#8BD46E" stroke="#5E9E4A" stroke-width=".8"/>
+<g class="blink"><ellipse cx="25" cy="31" rx="2.7" ry="3.5" fill="#2B2140"/><ellipse cx="39" cy="31" rx="2.7" ry="3.5" fill="#2B2140"/><circle cx="26" cy="29.6" r="1" fill="#fff"/><circle cx="40" cy="29.6" r="1" fill="#fff"/></g>
+<path d="M28.5 36.5 Q32 41.5 35.5 36.5 Z" stroke="#2B2140" stroke-width="1.4" fill="#FF6F91" stroke-linecap="round" stroke-linejoin="round"/>
+</g></g>
+</svg>
