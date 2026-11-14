@@ -1519,8 +1519,8 @@ export const register: Register = on => {
             <Svg source={scoped(drawn.source)} alt={`${titleOf(look)}, ${mood}: ${line}`} width={drawn.width} height={40} isInteractive />
             {(await read($, isTappable)) ? (
               <Box position="absolute" top={0} left={5}>
-                <Button key="tap" label="pet" plain onPress={onPet}>
-                  {'\u2003\u2003\u2003'}
+                <Button key="tap" plain onPress={onPet}>
+                  {'\u2800\u2800\u2800\u2800'}
                 </Button>
               </Box>
             ) : null}
