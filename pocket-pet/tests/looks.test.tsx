@@ -58,7 +58,7 @@ test('/mochi reroll gives this project a new pet and stores it', async ($, on) =
     origin: { kind: 'composer' },
     presentation: { isFullscreen: false, columns: 120 },
   })
-  expect(text).toMatch(/^(Meet [A-Z][a-z]+, this project’s new (cat|bunny|bear|fox)|AUDA, the final boss, now rules this project|(NYX|WISP), the (night dragon|grinning cat), has moved in)\.$/)
+  expect(text).toMatch(/^(Meet [A-Z][a-z]+, this project’s new (cat|bunny|bear|fox|axolotl|chick|bee)|AUDA, the final boss, now rules this project|(NYX|WISP), the (night dragon|grinning cat), has moved in)\.$/)
   expect(Object.keys(saved).filter(k => k.startsWith('look:'))).toHaveLength(1)
   expect(await petSvg(ui)).not.toEqual(before)
   expect(JSON.stringify(await ui.find({ type: 'Box' }))).not.toMatch(/\\"[a-z-]+=\\"/)

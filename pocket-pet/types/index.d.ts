@@ -24,6 +24,9 @@ declare module 'claude-code' {
       isOpen: boolean
       bornAt: number
       cause: string
+      base: number
+      stars: number
+      isTappable: boolean
       theme: string
     }
   }

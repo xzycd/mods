@@ -10,11 +10,11 @@ The cache guard holds a prompt once, puts it back in the prompt box and says why
 
 `pocket-pet` is a small pet that sits beside the gauges. Each project gets its own, picked from the project's folder so it's the same one every time you open it: a cat, bunny, bear or fox in one of 8 colours, with markings, an accessory and a name. Each also has a temper (bouncy, shy, drowsy, zoomy, nosy or smug) that sets how it walks, fidgets and talks. About one project in eight gets AUDA instead, a black and red baby dragon with a BOSS badge and lines of its own. NYX, a night dragon, and WISP, a grey cat that fades down to its eyes and grin, each turn up in about one project in sixty-four. A rare one also drops by for a few minutes now and then, and `keep` makes it stay.
 
-The pet reacts to the session. While Claude works, its speech bubble cycles through verbs such as thinking… and brewing…. It has thirteen moods. It gets dizzy when tools fire in a burst, startled when one fails, sad when a turn is stopped, happy when one finishes and proud on every fifth turn in a row. When a limit or the context is nearly used up it says which. Leave it alone and it gets bored after a minute and falls asleep after three. Now and then an idle pet fades to a faint outline with only its eyes and mouth glowing.
+The pet reacts to the session. While Claude works, its speech bubble cycles through verbs such as thinking… and brewing…. It has thirteen moods. It gets dizzy when tools fire in a burst, startled when one fails, sad when a turn is stopped, happy when one finishes and proud on every fifth turn in a row. When a limit or the context is nearly used up it says which. Leave it alone and it gets bored after a minute and falls asleep after three. Most of the time an idle, bored or busy pet fades now and then to a faint outline with only its eyes and mouth glowing.
 
-On the desktop app it also notices the pointer. Come within about 20 pixels and it stops, follows the pointer with its eyes and leans that way. Rest the pointer on its face and it squints; press and hold and it dangles, kicks its feet and follows the pointer along the band, then trots home when you let go. The press is drawn only, because the app gives a mod no click on a drawing, so `♥` is still what counts a pet.
+On the desktop app it also notices the pointer. Come within about 20 pixels and it stops, follows the pointer with its eyes and leans that way. Rest the pointer on its face and it squints; press and hold and it dangles, kicks its feet and follows the pointer along the band, then trots home when you let go. A press on the middle of the pet also counts as a pet, through a clear button laid over the drawing, since the app gives a mod no click on the drawing itself. `/mochi tap` turns the button off, and `♥` counts either way.
 
-It levels up as it watches turns finish and gets petted, and it gets hungry over about four hours, when a `feed` button appears. Level, pets, hunger, the streak and the bubble theme are kept across sessions.
+It levels up as it watches turns finish and gets petted. It starts as a baby and grows at levels 5, 10 and 20. From level 10 it can be reborn: it starts over as a baby with a ★ by its name, and the next new pet is a rare one. It gets hungry over about four hours, when a `feed` button appears. Level, pets, hunger, the streak and the bubble theme are kept across sessions.
 
 Both draw as SVG on the desktop app and fall back to plain text in the terminal.
 
@@ -46,11 +46,13 @@ Answer `y` to add the marketplace, then pick the user scope so the mods load in 
 - `/hud ttl 5` or `/hud ttl 60` fixes the cache countdown; `/hud ttl auto`, the default, follows the session.
 - `/mochi` draws a card with your pet, its level and xp bar, turns seen, hearts, streak and hunger.
 - `/mochi theme` cycles the bubble's colour: black, slate, plum, forest, ocean, ember. `/mochi theme plum` picks one.
-- `/mochi reroll` gives the current project a new pet. Each reroll that lands a common one raises the odds of a rare one next time.
+- `/mochi reroll` gives the current project a new pet. Each reroll that lands a common one raises the odds of a rare one next time. A reroll can also bring an axolotl, a chick or a bee.
 - `/mochi boss` summons AUDA to the current project.
 - `/mochi night` summons NYX, and `/mochi grin` summons WISP.
 - `/mochi hide` hides the pet in every session, and running it again brings it back.
-- `⋯` beside the pet opens the same choices as buttons: new pet, AUDA, NYX, WISP, theme and hide.
+- `/mochi rebirth` restarts a level 10 pet as a baby with a ★.
+- `/mochi tap` turns the press target over the pet off or on.
+- `⋯` beside the pet opens the same choices as buttons: new pet, AUDA, NYX, WISP, theme, rebirth and hide.
 
 ## Tests
 
