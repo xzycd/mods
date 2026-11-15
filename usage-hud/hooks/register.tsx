@@ -888,7 +888,7 @@ export const register: Register = on => {
     const ttlNow = ttlMin === 5 ? '5m' : ttlMin === 60 ? '1h' : 'auto'
 
     return (
-      <Box flexDirection="column" gap="xs">
+      <Box flexDirection="column" gap="xs" backgroundColor="#000000">
         <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
           {below}
           {dock ? <Svg source={dock.source} alt={calm.map(g => g.alt).join('; ')} width={dock.width} height={24} /> : null}

@@ -403,10 +403,12 @@ const NEW_KINDS: Kind[] = [
       `<g fill="${p.mid}"><rect x="14" y="41" width="4" height="10"/><rect class="foot f1" x="22" y="41" width="4" height="10"/><rect x="38" y="41" width="4" height="10"/><rect class="foot f2" x="46" y="41" width="4" height="10"/></g>`,
     eyes: (_, mood) =>
       BLOCK_EYED.has(mood)
-        ? `<g class="${mood === 'busy' ? 'glance' : 'blink'}"><g class="look"><rect x="19" y="21.5" width="5" height="6" fill="${INK}"/><rect x="40" y="21.5" width="5" height="6" fill="${INK}"/></g></g>`
+        ? `<g class="${mood === 'busy' ? 'glance' : 'blink'}"><g class="look"><g class="scan"><rect x="19" y="21.5" width="5" height="6" fill="${INK}"/><rect x="40" y="21.5" width="5" height="6" fill="${INK}"/></g></g></g>`
         : `<g class="look">${EYES[mood]}</g>`,
     mouth: (_, mood) => (BLOCK_EYED.has(mood) ? '' : undefined),
-    react: `${NEAR} .flap{animation:flap .2s ease-in-out infinite alternate}`,
+    css: mood =>
+      `.flap{animation:wave 2.6s ease-in-out infinite}.scan{animation:scan 7s ease-in-out infinite}@keyframes wave{0%,68%,100%{transform:none}78%{transform:translateY(-3px)}88%{transform:translateY(-1px)}}@keyframes scan{0%,40%,100%{transform:none}48%,60%{transform:translateX(-2.2px)}72%,86%{transform:translateX(2.2px)}}${mood === 'busy' || mood === 'dizzy' ? '.f1{animation:kick .16s ease-in-out infinite alternate}.f2{animation:kick .16s ease-in-out -.16s infinite alternate}' : ''}`,
+    react: `${NEAR} .flap{animation:none;transform:translateY(-3px)}${NEAR} .scan{animation:none}`,
   },
 ]
 
