@@ -394,19 +394,18 @@ const NEW_KINDS: Kind[] = [
   },
   {
     word: 'pixel crab',
-    palette: { light: '#F2AC93', mid: '#D97757', deep: '#B5573A', ear: '#C4643F', inner: '#A84E33', cheek: '#F6C3B0', accent: '#E8825E', glow: '#FFD9C9', trim: '#FFD166' },
+    palette: { light: '#D97757', mid: '#D97757', deep: '#D97757', ear: '#D97757', inner: '#B5573A', cheek: '#D97757', accent: '#E8825E', glow: '#FFD9C9', trim: '#FFD166' },
     ears: () => '',
     tail: () => '',
-    wings: p =>
-      mirror(`<g class="flap"><rect x="6" y="27" width="7" height="7" fill="${p.mid}" stroke="${p.inner}" stroke-width="1"/></g>`),
-    body: p =>
-      `<rect x="12" y="15" width="40" height="31" fill="url(#body)" stroke="${p.inner}" stroke-width="1.1"/><rect x="15" y="18" width="9" height="3" fill="#fff" opacity=".35"/>`,
+    wings: p => mirror(`<g class="flap"><rect x="5" y="26" width="6" height="7" fill="${p.mid}"/></g>`),
+    body: p => `<rect x="10" y="15" width="44" height="26" fill="${p.mid}"/>`,
     feet: p =>
-      `<g fill="${p.ear}" stroke="${p.inner}" stroke-width=".9"><rect x="15" y="46" width="5" height="6"/><rect class="foot f1" x="23" y="46" width="5" height="6"/><rect x="36" y="46" width="5" height="6"/><rect class="foot f2" x="44" y="46" width="5" height="6"/></g>`,
+      `<g fill="${p.mid}"><rect x="14" y="41" width="4" height="10"/><rect class="foot f1" x="22" y="41" width="4" height="10"/><rect x="38" y="41" width="4" height="10"/><rect class="foot f2" x="46" y="41" width="4" height="10"/></g>`,
     eyes: (_, mood) =>
       BLOCK_EYED.has(mood)
-        ? `<g class="${mood === 'busy' ? 'glance' : 'blink'}"><g class="look"><rect x="22.6" y="25.6" width="4.2" height="9.4" fill="${INK}"/><rect x="37.2" y="25.6" width="4.2" height="9.4" fill="${INK}"/></g></g>`
+        ? `<g class="${mood === 'busy' ? 'glance' : 'blink'}"><g class="look"><rect x="19" y="21.5" width="5" height="6" fill="${INK}"/><rect x="40" y="21.5" width="5" height="6" fill="${INK}"/></g></g>`
         : `<g class="look">${EYES[mood]}</g>`,
+    mouth: (_, mood) => (BLOCK_EYED.has(mood) ? '' : undefined),
     react: `${NEAR} .flap{animation:flap .2s ease-in-out infinite alternate}`,
   },
 ]
