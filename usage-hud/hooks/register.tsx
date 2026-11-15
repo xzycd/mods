@@ -17,6 +17,7 @@ const isExpanded = atom({ plugin: 'usage-hud', key: 'isExpanded' } as const, fal
 const isGuarded = atom({ plugin: 'usage-hud', key: 'isGuarded' } as const, true)
 const ttlMinutes = atom({ plugin: 'usage-hud', key: 'ttlMinutes' } as const, 0)
 const ttlSeen = atom({ plugin: 'usage-hud', key: 'ttlSeen' } as const, 0)
+const replyAt = atom({ plugin: 'usage-hud', key: 'replyAt' } as const, 0)
 const sessionId = atom({ plugin: 'usage-hud', key: 'sessionId' } as const, '')
 const theme = atom({ plugin: 'usage-hud', key: 'theme' } as const, 'ember')
 
@@ -106,13 +107,16 @@ const minus = (a: Totals, b: Totals): Totals => ({
 const asTallies = (v: unknown): Tallies => {
   const out: Tallies = {}
   if (typeof v !== 'object' || v === null) return out
-  for (const [path, f] of Object.entries(v as Record<string, { size?: unknown; mtimeMs?: unknown; t?: unknown; lastId?: unknown; lastAt?: unknown }>)) {
+  for (const [path, f] of Object.entries(v as Record<string, { size?: unknown; mtimeMs?: unknown; t?: unknown; dup?: unknown; firstId?: unknown; lastId?: unknown; lastAt?: unknown }>)) {
     const t = asTotals(f?.t)
     if (!t || typeof f.size !== 'number' || typeof f.mtimeMs !== 'number') continue
+    const dup = asTotals(f.dup)
     out[path] = {
       size: f.size,
       mtimeMs: f.mtimeMs,
       t,
+      ...(dup ? { dup } : {}),
+      ...(typeof f.firstId === 'string' ? { firstId: f.firstId } : {}),
       ...(typeof f.lastId === 'string' ? { lastId: f.lastId } : {}),
       ...(typeof f.lastAt === 'string' ? { lastAt: f.lastAt } : {}),
     }
@@ -120,7 +124,7 @@ const asTallies = (v: unknown): Tallies => {
   return out
 }
 
-const sumTallies = (all: Tallies) => Object.values(all).reduce((a, f) => plus(a, f.t), ZERO)
+const sumTallies = (all: Tallies) => Object.values(all).reduce((a, f) => plus(a, minus(f.t, f.dup ?? ZERO)), ZERO)
 
 const sumSession = (all: Tallies, id: string) =>
   id
@@ -128,6 +132,11 @@ const sumSession = (all: Tallies, id: string) =>
         .filter(([path]) => path.endsWith(`/${id}.jsonl`) || path.includes(`/${id}/`))
         .reduce((a, [, f]) => plus(a, f.t), ZERO)
     : ZERO
+
+const lastReplyAt = (all: Tallies, id: string) => {
+  const at = id ? Object.entries(all).find(([path]) => path.endsWith(`/${id}.jsonl`))?.[1].lastAt : undefined
+  return at ? Date.parse(at) || 0 : 0
+}
 
 type Reply = {
   type?: string
@@ -140,9 +149,20 @@ type Reply = {
   }
 }
 
-type Tally = { t: Totals; seen: Set<string>; lastId?: string; lastAt?: string; floor?: string; ttl: number }
+type Tally = { t: Totals; dup: Totals; seen: Map<string, number>; shared?: ReadonlySet<string>; firstId: string; lastId?: string; lastAt?: string; floor?: string; ttl: number }
 
-// A reply with several content blocks is written once per block, each line carrying the same usage.
+const tallyFrom = (was?: Tallies[string]): Tally => ({
+  t: { ...(was?.t ?? ZERO) },
+  dup: { ...(was?.dup ?? ZERO) },
+  seen: new Map(was?.lastId ? [[was.lastId, Infinity]] : []),
+  firstId: was?.firstId ?? '',
+  lastId: was?.lastId,
+  lastAt: was?.lastAt,
+  floor: was?.lastAt,
+  ttl: 0,
+})
+
+// A reply with several content blocks is written once per block; only the last line carries its final output count.
 // A rewind can write older replies again further down; in appended bytes those sit before `floor`.
 const tallyLines = (text: string, k: Tally) => {
   for (const line of text.split('\n')) {
@@ -154,16 +174,25 @@ const tallyLines = (text: string, k: Tally) => {
       continue
     }
     const m = o.message
-    if (o.type !== 'assistant' || !m?.usage || typeof m.id !== 'string' || k.seen.has(m.id)) continue
+    if (o.type !== 'assistant' || !m?.usage || typeof m.id !== 'string') continue
+    const output = m.usage.output_tokens ?? 0
+    const counted = k.seen.get(m.id)
+    if (counted !== undefined) {
+      if (output <= counted) continue
+      k.seen.set(m.id, output)
+      k.t.output += output - counted
+      if (k.shared?.has(m.id)) k.dup.output += output - counted
+      continue
+    }
     const at = o.timestamp ?? ''
     if (k.floor && at && at < k.floor) continue
-    k.seen.add(m.id)
+    k.seen.set(m.id, output)
+    k.firstId ||= m.id
     k.lastId = m.id
     if (at > (k.lastAt ?? '')) k.lastAt = at
-    k.t.cacheRead += m.usage.cache_read_input_tokens ?? 0
-    k.t.cacheWrite += m.usage.cache_creation_input_tokens ?? 0
-    k.t.input += m.usage.input_tokens ?? 0
-    k.t.output += m.usage.output_tokens ?? 0
+    const u = { cacheRead: m.usage.cache_read_input_tokens ?? 0, cacheWrite: m.usage.cache_creation_input_tokens ?? 0, input: m.usage.input_tokens ?? 0, output }
+    k.t = plus(k.t, u)
+    if (k.shared?.has(m.id)) k.dup = plus(k.dup, u)
     const made = m.usage.cache_creation
     if ((made?.ephemeral_1h_input_tokens ?? 0) > 0) k.ttl = 60
     else if ((made?.ephemeral_5m_input_tokens ?? 0) > 0) k.ttl = 5
@@ -212,19 +241,25 @@ const scan = async ($: EngineInterface) => {
     let fresh = 0
     for (const f of await transcripts($, `${base}/projects`)) {
       const was = kept[f.path]
-      if (was && was.size === f.size && was.mtimeMs === f.mtimeMs) continue
-      const grew = was && f.size > was.size ? was : undefined
+      const isCurrent = was?.firstId !== undefined
+      if (isCurrent && was.size === f.size && was.mtimeMs === f.mtimeMs) continue
+      const grew = isCurrent && f.size > was.size ? was : undefined
       const from = grew?.size ?? 0
-      const k: Tally = {
-        t: { ...(grew?.t ?? ZERO) },
-        seen: new Set(grew?.lastId ? [grew.lastId] : []),
-        lastId: grew?.lastId,
-        lastAt: grew?.lastAt,
-        floor: grew?.lastAt,
-        ttl: 0,
-      }
+      let k = tallyFrom(grew)
       try {
         await tallyRange($, f.path, from, f.size - from, k)
+        // A resumed or forked session starts its transcript with a copy of the one it came from.
+        const twins = grew?.firstId || !k.firstId ? [] : Object.entries(kept).filter(([p, x]) => p !== f.path && x.firstId === k.firstId)
+        if (twins.length) {
+          const shared = new Set<string>()
+          for (const [p, x] of twins) {
+            const s = tallyFrom()
+            await tallyRange($, p, 0, x.size, s)
+            for (const id of s.seen.keys()) shared.add(id)
+          }
+          k = { ...tallyFrom(grew), shared }
+          await tallyRange($, f.path, from, f.size - from, k)
+        }
       } catch {
         continue
       }
@@ -232,6 +267,8 @@ const scan = async ($: EngineInterface) => {
         size: f.size,
         mtimeMs: f.mtimeMs,
         t: k.t,
+        ...(k.dup.cacheRead + k.dup.cacheWrite + k.dup.input + k.dup.output ? { dup: k.dup } : {}),
+        firstId: k.firstId,
         ...(k.lastId ? { lastId: k.lastId } : {}),
         ...(k.lastAt ? { lastAt: k.lastAt } : {}),
       }
@@ -244,6 +281,7 @@ const scan = async ($: EngineInterface) => {
     await update($, atScan, () => before)
     await update($, lifetime, () => sumTallies(kept))
     await update($, sessionBase, () => sumSession(kept, id))
+    await update($, replyAt, () => lastReplyAt(kept, id))
   } finally {
     isScanning = false
     scannedAt = Date.now()
@@ -285,32 +323,31 @@ type Tile = {
   isEmpty?: boolean
 }
 
-const tile = (th: Theme, { label, meta, value, unit, fill, marker, isAlarm, isEmpty }: Tile) => {
-  const x0 = 8
-  const bar = TILE_W - 16
-  const n = 20
-  const gap = 1.2
-  const w = (bar - gap * (n - 1)) / n
-  const lit = isEmpty ? 0 : Math.round(clamp01(fill) * n)
-  const lead = isAlarm ? th.alarm : th.accent
+const meter = (th: Theme, x: number, y: number, width: number, n: number, gap: number, fill: number, lead: string, marker?: number) => {
+  const w = (width - gap * (n - 1)) / n
+  const lit = Math.round(clamp01(fill) * n)
   const segs = Array.from({ length: n }, (_, i) => {
     const color = i >= lit ? th.off : i === lit - 1 ? th.head : lead
-    return `<rect x="${(x0 + i * (w + gap)).toFixed(2)}" y="32" width="${w.toFixed(2)}" height="3" rx=".6" fill="${color}"/>`
+    return `<rect x="${(x + i * (w + gap)).toFixed(2)}" y="${y}" width="${w.toFixed(2)}" height="3" rx=".6" fill="${color}"/>`
   }).join('')
-  const tick =
-    marker === undefined || isEmpty
-      ? ''
-      : `<rect x="${(x0 + clamp01(marker) * bar - 0.6).toFixed(2)}" y="30" width="1.2" height="7" fill="${th.text}"/>`
-  const ink = isEmpty ? th.mute : isAlarm ? th.alarm : th.text
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TILE_W} ${TILE_H}" width="${TILE_W}" height="${TILE_H}">${BLINK}<g font-family="${MONO}" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${TILE_W - 1}" height="${TILE_H - 1}" rx="7" fill="${th.ink}" stroke="${isAlarm ? th.alarm : th.edge}" stroke-opacity="${isAlarm ? 0.55 : 1}"/><rect class="${isAlarm ? 'hud-b' : ''}" x="8" y="7.5" width="3" height="3" fill="${isEmpty ? th.off : lead}"/><text x="15" y="11" font-size="7.5" letter-spacing="1.3" fill="${th.mute}">${label}</text><text x="${TILE_W - 8}" y="11" font-size="7.5" text-anchor="end" fill="${th.mute}">${meta}</text><text class="${isAlarm ? 'hud-b' : ''}" x="8" y="26" font-size="14" font-weight="600" fill="${ink}">${value}${unit ? `<tspan font-size="8" fill="${th.mute}" dx="1">${unit}</tspan>` : ''}</text>${segs}${tick}</g></svg>`
+  const tick = marker === undefined ? '' : `<rect x="${(x + clamp01(marker) * width - 0.6).toFixed(2)}" y="${y - 2}" width="1.2" height="7" fill="${th.text}"/>`
+  return segs + tick
 }
 
-type Readout = { key: string; value: string; note?: string; isAlarm?: boolean }
+const tile = (th: Theme, { label, meta, value, unit, fill, marker, isAlarm, isEmpty }: Tile) => {
+  const lead = isAlarm ? th.alarm : th.accent
+  const bar = meter(th, 8, 32, TILE_W - 16, 20, 1.2, isEmpty ? 0 : fill, lead, isEmpty ? undefined : marker)
+  const ink = isEmpty ? th.mute : isAlarm ? th.alarm : th.text
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TILE_W} ${TILE_H}" width="${TILE_W}" height="${TILE_H}">${BLINK}<g font-family="${MONO}" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${TILE_W - 1}" height="${TILE_H - 1}" rx="7" fill="${th.ink}" stroke="${isAlarm ? th.alarm : th.edge}" stroke-opacity="${isAlarm ? 0.55 : 1}"/><rect class="${isAlarm ? 'hud-b' : ''}" x="8" y="7.5" width="3" height="3" fill="${isEmpty ? th.off : lead}"/><text x="15" y="11" font-size="7.5" letter-spacing="1.3" fill="${th.mute}">${label}</text><text x="${TILE_W - 8}" y="11" font-size="7.5" text-anchor="end" fill="${th.mute}">${meta}</text><text class="${isAlarm ? 'hud-b' : ''}" x="8" y="26" font-size="14" font-weight="600" fill="${ink}">${value}${unit ? `<tspan font-size="8" fill="${th.mute}" dx="1">${unit}</tspan>` : ''}</text>${bar}</g></svg>`
+}
+
+type Readout = { key: string; value: string; note?: string; isAlarm?: boolean; fill?: number; marker?: number }
 
 const strip = (th: Theme, items: Readout[]) => {
   const ch = 5.5
   const pad = 10
   const sep = 16
+  const mini = 24
   let x = pad
   const parts = items.map((r, i) => {
     const out: string[] = []
@@ -321,6 +358,11 @@ const strip = (th: Theme, items: Readout[]) => {
     x += (r.key.length + 1) * ch
     out.push(`<text x="${x.toFixed(1)}" y="15.5" fill="${r.isAlarm ? th.alarm : th.text}">${r.value}</text>`)
     x += r.value.length * ch
+    if (r.fill !== undefined) {
+      x += ch
+      out.push(meter(th, x, 10.5, mini, 8, 1, r.fill, r.isAlarm ? th.alarm : th.accent, r.marker))
+      x += mini
+    }
     if (r.note) {
       x += ch
       out.push(`<text x="${x.toFixed(1)}" y="15.5" fill="${th.mute}">${r.note}</text>`)
@@ -427,8 +469,11 @@ const pace = (l: Limit, t: number) => {
   const ratio = l.percentUsed / 100 / (elapsed / total)
   const rate = l.percentUsed / elapsed
   const out = rate > 0 ? t + (100 - l.percentUsed) / rate : Infinity
-  return { ratio, out, reset, isShort: out < reset }
+  return { ratio, out, reset, isShort: elapsed >= total / 10 && out < reset }
 }
+
+const current = (l: Limit | undefined, t: number): Limit | undefined =>
+  l?.resetsAt && Date.parse(l.resetsAt) <= t ? { kind: l.kind, percentUsed: 0 } : l
 
 const refresh = async ($: EngineInterface) => {
   const u = await $.session.usage()
@@ -482,18 +527,20 @@ type Risk = { key: string; text: string }
 
 const OUT = 'Press Enter to send it anyway, or compact first. /hud guard off turns this off.'
 
+const coldFrom = async ($: EngineInterface) => (await read($, lastCall))?.at || (await read($, replyAt))
+
 const riskOf = async ($: EngineInterface, acked: number): Promise<{ risk: Risk | null; band: number }> => {
-  const call = await read($, lastCall)
+  const at = await coldFrom($)
   const { tokens, pct } = contextOf(await read($, snapshot))
   const band = BANDS.find(b => pct >= b) ?? 0
   const t = Date.now()
   const ttl = await ttlMsOf($)
-  if (call && t > call.at + ttl && tokens >= COLD_MIN) {
+  if (at && t > at + ttl && tokens >= COLD_MIN) {
     return {
       band,
       risk: {
-        key: `cold:${call.at}`,
-        text: `Held: the prompt cache expired ${span(t - call.at - ttl)} ago, so this message would write all ${compact(tokens)} tokens of context to the cache again. ${OUT}`,
+        key: `cold:${at}`,
+        text: `Held: the prompt cache expired ${span(t - at - ttl)} ago, so this message would write all ${compact(tokens)} tokens of context to the cache again. ${OUT}`,
       },
     }
   }
@@ -523,6 +570,7 @@ export const register: Register = on => {
     const sum = await read($, totals)
     await update($, lifetime, () => sumTallies(kept))
     await update($, sessionBase, () => sumSession(kept, id))
+    await update($, replyAt, () => lastReplyAt(kept, id))
     await update($, atScan, () => sum)
     void scan($).catch(() => undefined)
     $.clock.every(60e3, () => scan($).catch(() => undefined))
@@ -549,6 +597,7 @@ export const register: Register = on => {
 
   on('turn.step', async function* ($, e, next) {
     const sentAt = Date.now()
+    if (e.agentId === undefined) await update($, lastCall, c => (c ? { ...c, at: sentAt } : c))
     const r = yield* next(e)
     if (!r.usage) return r
     const u = r.usage
@@ -587,6 +636,16 @@ export const register: Register = on => {
     return next(e)
   })
 
+  on('session.compact', async ($, e, next) => {
+    const r = await next(e)
+    if (e.agentId === undefined && e.trigger !== 'precompute' && !r.skip) {
+      const key = `cold:${await coldFrom($)}`
+      await update($, held, x => ({ ...x, key, at: Date.now(), isPassed: true }))
+    }
+
+    return r
+  })
+
   on('session.measure', async ($, e, next) => {
     await update($, snapshot, () => toSnapshot(e))
 
@@ -594,7 +653,7 @@ export const register: Register = on => {
   })
 
   on('prompt.submit', async ($, e, next) => {
-    if (e.command || e.isMeta || e.attachments?.length || !GUARDED.has(e.origin.kind) || !(await read($, isGuarded))) return next(e)
+    if (e.command || e.isMeta || e.turnId || e.attachments?.length || !GUARDED.has(e.origin.kind) || !(await read($, isGuarded))) return next(e)
     const h = await read($, held)
     const { risk, band } = await riskOf($, h.band)
     if (!risk) {
@@ -672,8 +731,8 @@ export const register: Register = on => {
     const isOn = await read($, isGuarded)
 
     const limits = snap?.limits ?? []
-    const five = limits.find(l => l.kind === 'five_hour')
-    const week = limits.find(l => l.kind === 'seven_day')
+    const five = current(limits.find(l => l.kind === 'five_hour'), t)
+    const week = current(limits.find(l => l.kind === 'seven_day'), t)
     const cacheLeft = call ? call.at + ttlMs - t : 0
     const isWarm = cacheLeft > 0
     const isCooling = isWarm && cacheLeft < 120e3
@@ -683,6 +742,13 @@ export const register: Register = on => {
     const ctx = contextOf(snap)
     const ctxPct = Math.round(ctx.pct)
     const isCtxHigh = ctxPct >= 80
+    const cacheValue = call ? (isWarm ? countdown(cacheLeft) : 'COLD') : '—'
+
+    const watch = (l: Limit | undefined) => {
+      const left = l ? Math.max(0, 100 - l.percentUsed) : 0
+      const isAlarm = Boolean(l && (left <= 15 || pace(l, t)?.isShort))
+      return { left, isAlarm, isHot: isAlarm || Boolean(l && left <= 30) }
+    }
 
     if (e.surface === 'terminal') {
       const { Box, Text } = $.ui.resolve(e)
@@ -691,13 +757,13 @@ export const register: Register = on => {
         return '▰'.repeat(lit) + '▱'.repeat(8 - lit)
       }
       const lim = (name: string, l: Limit | undefined) => {
-        const rest = l ? 100 - l.percentUsed : 0
+        const w = watch(l)
         return (
           <Text>
             <Text dimColor>{name} </Text>
-            <Text color={l ? (rest <= 15 ? th.alarm : th.accent) : 'subtle'}>{bar(rest)}</Text>
-            <Text bold={rest <= 15}> {l ? `${Math.round(rest)}%` : '—'}</Text>
-            {l?.resetsAt ? <Text dimColor> {span(Date.parse(l.resetsAt) - t)}</Text> : null}
+            {w.isHot ? <Text color={w.isAlarm ? th.alarm : th.accent}>{bar(w.left)} </Text> : null}
+            <Text color={w.isAlarm ? th.alarm : undefined} bold={w.isAlarm}>{l ? `${Math.round(w.left)}%` : '—'}</Text>
+            {w.isHot && l?.resetsAt ? <Text dimColor> {span(Date.parse(l.resetsAt) - t)}</Text> : null}
           </Text>
         )
       }
@@ -707,20 +773,15 @@ export const register: Register = on => {
             {lim('5h', five)}
             {lim('wk', week)}
             <Text>
-              <Text dimColor>cache </Text>
+              <Text dimColor>{isOn ? 'cache ◆ ' : 'cache '}</Text>
               <Text color={isCooling ? th.alarm : undefined} bold={isCooling}>
-                {call ? (isWarm ? countdown(cacheLeft) : 'cold') : '—'}
+                {cacheValue.toLowerCase()}
               </Text>
-            </Text>
-            <Text>
-              <Text dimColor>read </Text>
-              <Text>{call ? compact(call.cacheRead) : '—'}</Text>
             </Text>
             <Text>
               <Text dimColor>ctx </Text>
               <Text color={isCtxHigh ? th.alarm : undefined}>{ctxPct}%</Text>
             </Text>
-            {isOn ? <Text dimColor>guard</Text> : null}
           </Box>
           {below}
         </Box>
@@ -729,36 +790,35 @@ export const register: Register = on => {
 
     const { Box, Button, Svg } = $.ui.resolve(e)
 
-    const limitTile = (label: string, name: string, l: Limit | undefined) => {
+    type Gauge = { source: string; alt: string; chip: Readout; isHot: boolean }
+
+    const limitGauge = (label: string, key: string, name: string, l: Limit | undefined): Gauge => {
       if (!l) {
-        return { source: tile(th, { label, meta: '', value: '—', fill: 0, isEmpty: true }), alt: `${name}: no reading yet` }
+        return { source: tile(th, { label, meta: '', value: '—', fill: 0, isEmpty: true }), alt: `${name}: no reading yet`, chip: { key, value: '—' }, isHot: false }
       }
-      const left = Math.max(0, 100 - l.percentUsed)
+      const w = watch(l)
       const total = WINDOW_MS[l.kind]
       const reset = l.resetsAt ? Date.parse(l.resetsAt) : undefined
-      const p = pace(l, t)
+      const meta = reset ? short(reset - t) : ''
+      const marker = reset && total ? (reset - t) / total : undefined
+      const value = `${Math.round(w.left)}`
       return {
-        source: tile(th, {
-          label,
-          meta: reset ? short(reset - t) : '',
-          value: `${Math.round(left)}`,
-          unit: '%',
-          fill: left / 100,
-          marker: reset && total ? (reset - t) / total : undefined,
-          isAlarm: left <= 15 || Boolean(p?.isShort),
-        }),
-        alt: `${name}: ${Math.round(left)}% left${reset ? `, resets in ${span(reset - t)}` : ''}`,
+        source: tile(th, { label, meta, value, unit: '%', fill: w.left / 100, marker, isAlarm: w.isAlarm }),
+        alt: `${name}: ${value}% left${reset ? `, resets in ${span(reset - t)}` : ''}`,
+        chip: { key, value: `${value}%`, fill: w.left / 100, marker, note: meta },
+        isHot: w.isHot,
       }
     }
 
-    const tiles = [
-      limitTile('5H', '5-hour limit', five),
-      limitTile('WEEK', 'Weekly limit', week),
+    const cacheLabel = isOn ? 'CACHE ◆' : 'CACHE'
+    const gauges: Gauge[] = [
+      limitGauge('5H', '5H', '5-hour limit', five),
+      limitGauge('WEEK', 'WK', 'Weekly limit', week),
       {
         source: tile(th, {
-          label: isOn ? 'CACHE ◆' : 'CACHE',
+          label: cacheLabel,
           meta: call ? compact(call.cacheRead) : `${ttlMs / 60000}M`,
-          value: call ? (isWarm ? countdown(cacheLeft) : 'COLD') : '—',
+          value: cacheValue,
           fill: isWarm ? cacheLeft / ttlMs : 0,
           isAlarm: isCooling,
           isEmpty: !isWarm,
@@ -766,6 +826,8 @@ export const register: Register = on => {
         alt: call
           ? `Cache ${isWarm ? `warm for ${countdown(cacheLeft)}` : 'cold'}, last read ${compact(call.cacheRead)} tokens${isOn ? ', guard on' : ''}`
           : 'Cache: no reply yet',
+        chip: { key: cacheLabel, value: cacheValue, fill: isWarm ? cacheLeft / ttlMs : undefined },
+        isHot: isWarm && cacheLeft < Math.min(300e3, ttlMs / 2),
       },
       {
         source: tile(th, {
@@ -778,8 +840,13 @@ export const register: Register = on => {
           isEmpty: !snap,
         }),
         alt: `Context ${ctxPct}% used, ${compact(ctx.tokens)} of ${compact(snap?.contextWindow ?? 0)} tokens`,
+        chip: snap ? { key: 'CTX', value: `${ctxPct}%`, fill: ctx.pct / 100 } : { key: 'CTX', value: '—' },
+        isHot: ctxPct >= 60,
       },
     ]
+    const calm = expanded ? [] : gauges.filter(g => !g.isHot)
+    const dock = calm.length ? strip(th, calm.map(g => g.chip)) : null
+    const tiles = expanded ? gauges : gauges.filter(g => g.isHot)
 
     const readout = (key: string, l: Limit | undefined): Readout | null => {
       const p = l && pace(l, t)
@@ -792,17 +859,13 @@ export const register: Register = on => {
       }
     }
 
-    const details = strip(
-      th,
-      [
-        readout('5H', five),
-        readout('WK', week),
-        { key: 'Σ CACHE', value: compact(session.cacheRead), note: `${Math.round(sumHit * 100)}%` },
-        call ? { key: 'HIT', value: `${Math.round(hit * 100)}%` } : null,
-        snap ? { key: 'CTX', value: `${compact(ctx.tokens)}/${compact(snap.contextWindow)}` } : null,
-        snap?.usd === undefined ? null : { key: 'COST', value: `$${snap.usd.toFixed(2)}` },
-      ].filter((r): r is Readout => r !== null),
-    )
+    const facts = [
+      readout('5H', five),
+      readout('WK', week),
+      sumPrompt ? { key: 'HIT', value: `${Math.round(sumHit * 100)}%`, note: call ? `LAST ${Math.round(hit * 100)}%` : undefined } : null,
+      snap?.usd === undefined ? null : { key: 'COST', value: `$${snap.usd.toFixed(2)}` },
+    ].filter((r): r is Readout => r !== null)
+    const details = facts.length ? strip(th, facts) : null
 
     const tokens = tokenBar(th, session, 'SESSION', 'Session')
     const allTokens = tokenBar(th, plus(await read($, lifetime), fromScan), 'LIFETIME', 'Lifetime')
@@ -815,9 +878,10 @@ export const register: Register = on => {
     }
 
     return (
-      <Box flexDirection="column" gap={1}>
+      <Box flexDirection="column" gap="xs">
         <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
           {below}
+          {dock ? <Svg source={dock.source} alt={calm.map(g => g.alt).join('; ')} width={dock.width} height={24} /> : null}
           {tiles.map(x => (
             <Svg source={x.source} alt={x.alt} width={TILE_W} height={TILE_H} />
           ))}
@@ -830,7 +894,7 @@ export const register: Register = on => {
         {expanded && window ? <Svg source={window.source} alt={window.alt} width={window.width} height={24} /> : null}
         {expanded ? (
           <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
-            <Svg source={details.source} alt="Pace and session cache details" width={details.width} height={24} />
+            {details ? <Svg source={details.source} alt="Pace, cache hit rate and cost" width={details.width} height={24} /> : null}
             <Button key="ttl5" variant={ttlMin === 5 ? 'primary' : 'secondary'} onPress={() => setTtl($, 5)}>
               5m
             </Button>
