@@ -46,13 +46,14 @@ Answer `y` to add the marketplace, then pick the user scope so the mods load in 
 - `/hud ttl 5` or `/hud ttl 60` fixes the cache countdown; `/hud ttl auto`, the default, follows the session.
 - `/mochi` draws a card with your pet, its level and xp bar, turns seen, hearts, streak and hunger.
 - `/mochi theme` cycles the bubble's colour: black, slate, plum, forest, ocean, ember. `/mochi theme plum` picks one.
-- `/mochi reroll` gives the current project a new pet. Each reroll that lands a common one raises the odds of a rare one next time. A reroll can also bring an axolotl, a chick or a bee.
+- `/mochi reroll` gives the current project a new pet. Each reroll that lands a common one raises the odds of a rare one next time. A reroll can also bring an axolotl, a chick, a bee or a coral pixel crab.
 - `/mochi boss` summons AUDA to the current project.
 - `/mochi night` summons NYX, and `/mochi grin` summons WISP.
 - `/mochi hide` hides the pet in every session, and running it again brings it back.
+- `/mochi crab` brings the pixel crab.
 - `/mochi rebirth` restarts a level 10 pet as a baby with a ★.
 - `/mochi tap` turns the press target over the pet off or on.
-- `⋯` beside the pet opens the same choices as buttons: new pet, AUDA, NYX, WISP, theme, rebirth and hide.
+- `⋯` beside the pet opens the same choices as buttons: new pet, AUDA, NYX, WISP, crab, theme, rebirth and hide.
 
 ## Tests
 

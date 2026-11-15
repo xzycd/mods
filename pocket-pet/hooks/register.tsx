@@ -307,6 +307,9 @@ type Kind = {
   eyes?: (p: Palette, mood: Mood) => string
   mouth?: (p: Palette, mood: Mood) => string | undefined
   react?: string
+  palette?: Palette
+  body?: (p: Palette) => string
+  feet?: (p: Palette) => string
   drifts?: Partial<Record<Mood, Drift>>
 }
 
@@ -386,6 +389,19 @@ const NEW_KINDS: Kind[] = [
     face: () =>
       `<g stroke="${INK}" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".3"><path d="M13.6 42.4 Q32 46.6 50.4 42.4"/><path d="M17.4 46.8 Q32 50 46.6 46.8"/></g>`,
     react: `${NEAR} .flap{animation:flap .12s ease-in-out infinite alternate}`,
+  },
+  {
+    word: 'pixel crab',
+    palette: { light: '#F2AC93', mid: '#D97757', deep: '#B5573A', ear: '#C4643F', inner: '#A84E33', cheek: '#F6C3B0', accent: '#E8825E', glow: '#FFD9C9', trim: '#FFD166' },
+    ears: () => '',
+    tail: () => '',
+    wings: p =>
+      mirror(`<g class="flap"><rect x="6" y="27" width="7" height="7" fill="${p.mid}" stroke="${p.inner}" stroke-width="1"/></g>`),
+    body: p =>
+      `<rect x="12" y="15" width="40" height="31" fill="url(#body)" stroke="${p.inner}" stroke-width="1.1"/><rect x="15" y="18" width="9" height="3" fill="#fff" opacity=".35"/>`,
+    feet: p =>
+      `<g fill="${p.ear}" stroke="${p.inner}" stroke-width=".9"><rect x="15" y="46" width="5" height="6"/><rect class="foot f1" x="23" y="46" width="5" height="6"/><rect x="36" y="46" width="5" height="6"/><rect class="foot f2" x="44" y="46" width="5" height="6"/></g>`,
+    react: `${NEAR} .flap{animation:flap .2s ease-in-out infinite alternate}`,
   },
 ]
 
@@ -709,7 +725,7 @@ const lookOf = (n: number): Look => {
   const trait = hashOf(`trait:${n >>> 0}`)
   return {
     name,
-    palette,
+    palette: guest?.palette ?? palette,
     kind: guest ?? kind,
     marks,
     wear,
@@ -761,11 +777,11 @@ const SUMMON = new Map<string, Slot>([
 const isSameLook = (a: Look, b: Look) =>
   a.name === b.name && a.kind === b.kind && a.palette === b.palette && a.marks === b.marks && a.wear === b.wear
 
-const randomSeed = (rare?: Slot) => {
+const randomSeed = (rare?: Slot, kin?: number) => {
   const low = Math.floor(Math.random() * LOOKS)
   const high = Math.floor(Math.random() * 64)
-  const kin = Math.random() < 0.45 ? 2 ** 32 * (1 + Math.floor(Math.random() * NEW_KINDS.length)) : 0
-  if (!rare) return kin + (low + LOOKS * high || 1)
+  const guest = kin ?? (Math.random() < 0.45 ? 1 + Math.floor(Math.random() * NEW_KINDS.length) : 0)
+  if (!rare) return 2 ** 32 * guest + (low + LOOKS * high || 1)
   const [every, at] = SLOTS[rare]
   return low + LOOKS * (at + every * (high % 8))
 }
@@ -998,12 +1014,13 @@ ${kind.back?.(p) ?? ''}
 ${kind.wings?.(p) ?? ''}
 <g class="swish"><g class="wag">${kind.tail(p)}</g></g>
 <g class="ears"><g class="flick">${kind.ears(p)}</g></g>
-<path d="M11 39 C11 22 21 12 32 12 C43 12 53 22 53 39 C53 47 46 50.5 32 50.5 C18 50.5 11 47 11 39 Z" fill="url(#body)" stroke="${p.rim ?? 'rgba(43,33,64,.28)'}" stroke-width="1.1"/>
-<ellipse cx="32" cy="43.6" rx="9.5" ry="5.2" fill="${p.ink ? p.inner : '#fff'}" opacity="${p.ink ? '.22' : '.3'}"/>
-<ellipse cx="23" cy="20" rx="5" ry="2.6" fill="#fff" opacity="${p.ink ? '.4' : '.7'}" transform="rotate(-24 23 20)"/>
+${
+  kind.body?.(p) ??
+  `<path d="M11 39 C11 22 21 12 32 12 C43 12 53 22 53 39 C53 47 46 50.5 32 50.5 C18 50.5 11 47 11 39 Z" fill="url(#body)" stroke="${p.rim ?? 'rgba(43,33,64,.28)'}" stroke-width="1.1"/><ellipse cx="32" cy="43.6" rx="9.5" ry="5.2" fill="${p.ink ? p.inner : '#fff'}" opacity="${p.ink ? '.22' : '.3'}"/><ellipse cx="23" cy="20" rx="5" ry="2.6" fill="#fff" opacity="${p.ink ? '.4' : '.7'}" transform="rotate(-24 23 20)"/>`
+}
 ${marks}
 ${mirror(`<ellipse class="cheek" cx="19.5" cy="37" rx="3.6" ry="2.1" fill="${p.cheek}" opacity="${mood === 'sad' || mood === 'hungry' ? '.3' : '.55'}"/>`)}
-<ellipse class="foot f1" cx="24.5" cy="49.8" rx="4.4" ry="2.3" fill="${p.ear}" ${EDGE}/><ellipse class="foot f2" cx="39.5" cy="49.8" rx="4.4" ry="2.3" fill="${p.ear}" ${EDGE}/>
+${kind.feet?.(p) ?? `<ellipse class="foot f1" cx="24.5" cy="49.8" rx="4.4" ry="2.3" fill="${p.ear}" ${EDGE}/><ellipse class="foot f2" cx="39.5" cy="49.8" rx="4.4" ry="2.3" fill="${p.ear}" ${EDGE}/>`}
 ${wear}
 ${face}
 ${kind.face?.(p, mood) ?? ''}
@@ -1151,16 +1168,16 @@ const cheerLevel = ($: EngineInterface, look: Look, before: number, after: numbe
   else $.ui.toast(look.isEvil ? `${BOSS} grows stronger · level ${after} ✦` : `${look.name} reached level ${after} ✦`)
 }
 
-const swap = async ($: EngineInterface, rare?: Slot) => {
+const swap = async ($: EngineInterface, rare?: Slot, kin?: number) => {
   const current = lookOf(await read($, seed))
   const dry = rare ? 0 : await kept($, 'dry')
-  const pick = rare ?? rollRare(dry, current)
-  let fresh = randomSeed(pick)
+  const pick = rare ?? (kin ? undefined : rollRare(dry, current))
+  let fresh = randomSeed(pick, kin)
   if (rare && isSameLook(lookOf(fresh), current)) return current.isEvil ? `${BOSS} already rules this project.` : `${current.name} is already here.`
-  while (isSameLook(lookOf(fresh), current) || (!pick && lookOf(fresh).rare)) fresh = randomSeed(pick)
+  while (isSameLook(lookOf(fresh), current) || (!pick && lookOf(fresh).rare)) fresh = randomSeed(pick, kin)
   await update($, seed, () => fresh)
   await $.store.set(await read($, project), fresh)
-  if (!rare) await $.store.set('dry', pick ? 0 : dry + 1)
+  if (!rare && !kin) await $.store.set('dry', pick ? 0 : dry + 1)
   await update($, isHidden, () => false)
   await $.store.set('hidden', false)
   const look = lookOf(fresh)
@@ -1243,7 +1260,7 @@ export const register: Register = on => {
       name: 'mochi',
       description:
         'Show your pet’s stats; reroll gives this project a new pet; boss, night and grin summon the rare ones; theme recolours its bubble; hide hides it. The ⋯ beside the pet does the same without typing',
-      argumentHint: '[reroll | boss | night | grin | rebirth | tap | theme [name] | hide]',
+      argumentHint: '[reroll | boss | night | grin | crab | rebirth | tap | theme [name] | hide]',
     })
     $.clock.every(30e3, async () => {
       await sync($)
@@ -1311,6 +1328,7 @@ export const register: Register = on => {
     const [verb, pick] = arg.split(/\s+/)
     if (verb === 'theme') return { text: await reskin($, pick) }
     if (arg === 'rebirth') return { text: await rebirth($) }
+    if (arg === 'crab') return { text: await swap($, undefined, NEW_KINDS.length) }
     if (arg === 'tap') {
       const tappable = await update($, isTappable, x => !x)
       await $.store.set('tap', tappable)
@@ -1459,6 +1477,9 @@ export const register: Register = on => {
             {rare.name}
           </Button>
         ))}
+        <Button key="crab" plain dimColor onPress={async () => say(await swap($, undefined, NEW_KINDS.length))}>
+          crab
+        </Button>
         <Button key="theme" plain dimColor onPress={async () => say(await reskin($))}>
           theme
         </Button>
