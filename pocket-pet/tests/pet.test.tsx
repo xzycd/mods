@@ -85,7 +85,7 @@ test('a press on the pet counts, and a level 10 pet can be reborn with a star', 
   const source = String((await ui.find({ type: 'Svg' }))?.props.source)
   expect(source).toContain('>LV1<')
   expect(source).toContain('★<')
-  expect(source).toContain('matrix(0.84 0 0 0.84')
+  expect(source).toContain('matrix(0.94 0 0 0.94')
   expect(await ui.find({ type: 'Button', key: 'rebirth' })).toBeFalsy()
   await ui.unmount()
 })

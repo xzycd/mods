@@ -36,7 +36,7 @@ type Theme = {
 
 const EMBER: Theme = {
   name: 'ember',
-  ink: '#0B0B0C',
+  ink: '#000000',
   edge: '#232327',
   off: '#26262A',
   accent: '#FF2E2E',
@@ -49,11 +49,11 @@ const EMBER: Theme = {
 
 const THEMES: Theme[] = [
   EMBER,
-  { name: 'ice', ink: '#0A0D12', edge: '#1E2633', off: '#1F2734', accent: '#3DA9FF', head: '#9AD8FF', deep: '#16405F', alarm: '#FF5A5A', text: '#EEF5FF', mute: '#6F7C8F' },
-  { name: 'mint', ink: '#0A0F0D', edge: '#1D2A24', off: '#1E2A25', accent: '#22D17C', head: '#93F2C4', deep: '#105234', alarm: '#FF5A5A', text: '#EFFBF5', mute: '#6E8279' },
-  { name: 'gold', ink: '#0F0D09', edge: '#2B2619', off: '#2A251A', accent: '#FFB21F', head: '#FFDD92', deep: '#614309', alarm: '#FF5A4A', text: '#FFF8EA', mute: '#857C68' },
-  { name: 'violet', ink: '#0D0B12', edge: '#262036', off: '#262036', accent: '#A273FF', head: '#D3BDFF', deep: '#3D2775', alarm: '#FF5A7A', text: '#F5F0FF', mute: '#7D768F' },
-  { name: 'mono', ink: '#0B0B0C', edge: '#2A2A2E', off: '#26262A', accent: '#D9D9DE', head: '#FFFFFF', deep: '#4A4A50', alarm: '#FF4D4D', text: '#F2F2F2', mute: '#77777D' },
+  { name: 'ice', ink: '#000000', edge: '#1E2633', off: '#1F2734', accent: '#3DA9FF', head: '#9AD8FF', deep: '#16405F', alarm: '#FF5A5A', text: '#EEF5FF', mute: '#6F7C8F' },
+  { name: 'mint', ink: '#000000', edge: '#1D2A24', off: '#1E2A25', accent: '#22D17C', head: '#93F2C4', deep: '#105234', alarm: '#FF5A5A', text: '#EFFBF5', mute: '#6E8279' },
+  { name: 'gold', ink: '#000000', edge: '#2B2619', off: '#2A251A', accent: '#FFB21F', head: '#FFDD92', deep: '#614309', alarm: '#FF5A4A', text: '#FFF8EA', mute: '#857C68' },
+  { name: 'violet', ink: '#000000', edge: '#262036', off: '#262036', accent: '#A273FF', head: '#D3BDFF', deep: '#3D2775', alarm: '#FF5A7A', text: '#F5F0FF', mute: '#7D768F' },
+  { name: 'mono', ink: '#000000', edge: '#2A2A2E', off: '#26262A', accent: '#D9D9DE', head: '#FFFFFF', deep: '#4A4A50', alarm: '#FF4D4D', text: '#F2F2F2', mute: '#77777D' },
 ]
 
 const themeOf = (name: string) => THEMES.find(x => x.name === name) ?? EMBER
@@ -413,6 +413,12 @@ const stackBar = (th: Theme, label: string, value: string, parts: Part[], scale:
     source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 24" width="${width}" height="24"><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${width - 1}" height="23" rx="7" fill="${th.ink}" stroke="${th.edge}"/><rect x="10" y="10.5" width="3" height="3" fill="${th.accent}"/><text x="${10 + 1.5 * ch}" y="15.5" fill="${th.mute}" letter-spacing="1.2">${label}</text><text x="${totalX.toFixed(1)}" y="15.5" fill="${th.text}" font-weight="600">${value}</text>${segs}${legend}</g></svg>`,
   }
 }
+
+const widen = <T extends { width: number; source: string }>(bar: T, to: number): T => ({
+  ...bar,
+  width: to,
+  source: bar.source.replace(`viewBox="0 0 ${bar.width} 24" width="${bar.width}"`, `viewBox="0 0 ${to} 24" width="${to}"`).replace(`width="${bar.width - 1}" height="23"`, `width="${to - 1}" height="23"`),
+})
 
 const tokenBar = (th: Theme, t: Totals, label: string, name: string) => {
   const parts = [
@@ -877,6 +883,10 @@ export const register: Register = on => {
       if (isOpen) void refreshContext($).catch(() => undefined)
     }
 
+    const rows = [tokens, allTokens, window, details].filter(r => r !== null)
+    const wide = Math.max(...rows.map(r => r.width))
+    const ttlNow = ttlMin === 5 ? '5m' : ttlMin === 60 ? '1h' : 'auto'
+
     return (
       <Box flexDirection="column" gap="xs">
         <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
@@ -889,27 +899,25 @@ export const register: Register = on => {
             {expanded ? '×' : '⋯'}
           </Button>
         </Box>
-        {expanded ? <Svg source={tokens.source} alt={tokens.alt} width={tokens.width} height={24} /> : null}
-        {expanded ? <Svg source={allTokens.source} alt={allTokens.alt} width={allTokens.width} height={24} /> : null}
-        {expanded && window ? <Svg source={window.source} alt={window.alt} width={window.width} height={24} /> : null}
+        {expanded
+          ? [
+              { ...widen(tokens, wide), alt: tokens.alt },
+              { ...widen(allTokens, wide), alt: allTokens.alt },
+              ...(window ? [{ ...widen(window, wide), alt: window.alt }] : []),
+              ...(details ? [{ ...widen(details, wide), alt: 'Pace, cache hit rate and cost' }] : []),
+            ].map(row => <Svg source={row.source} alt={row.alt} width={row.width} height={24} />)
+          : null}
         {expanded ? (
           <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
-            {details ? <Svg source={details.source} alt="Pace, cache hit rate and cost" width={details.width} height={24} /> : null}
-            <Button key="ttl5" variant={ttlMin === 5 ? 'primary' : 'secondary'} onPress={() => setTtl($, 5)}>
-              5m
+            <Button key="ttl" plain dimColor onPress={() => setTtl($, ttlMin === 0 ? 5 : ttlMin === 5 ? 60 : 0)}>
+              {`ttl ${ttlNow} ▸`}
             </Button>
-            <Button key="ttl60" variant={ttlMin === 60 ? 'primary' : 'secondary'} onPress={() => setTtl($, 60)}>
-              1h
-            </Button>
-            <Button key="ttlAuto" variant={ttlMin === 0 ? 'primary' : 'secondary'} onPress={() => setTtl($, 0)}>
-              auto
-            </Button>
-            <Button key="guard" variant={isOn ? 'primary' : 'secondary'} onPress={() => setGuard($, !isOn)}>
+            <Button key="guard" plain dimColor onPress={() => setGuard($, !isOn)}>
               {isOn ? 'guard on' : 'guard off'}
             </Button>
             {ctxPct >= 50 ? (
-              <Button key="compact" variant="primary" onPress={() => void $.session.compact()}>
-                Compact
+              <Button key="compact" plain onPress={() => void $.session.compact()}>
+                compact
               </Button>
             ) : null}
             <Button key="theme" plain dimColor onPress={() => setTheme($, nextTheme(th.name).name)}>

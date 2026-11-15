@@ -206,8 +206,8 @@ const levelOf = (turnCount: number, petCount: number, spent = 0) => Math.floor(M
 
 const REBIRTH_AT = 10
 const STAGES = [
-  { from: 1, word: 'baby', scale: 0.84 },
-  { from: 5, word: 'young', scale: 0.93 },
+  { from: 1, word: 'baby', scale: 0.94 },
+  { from: 5, word: 'young', scale: 1 },
   { from: REBIRTH_AT, word: 'grown', scale: 1 },
   { from: 20, word: 'elder', scale: 1 },
 ]
@@ -357,6 +357,8 @@ const KINDS: Kind[] = [
   },
 ]
 
+const BLOCK_EYED = new Set<Mood>(['idle', 'busy', 'bored', 'hungry', 'worried', 'sad'])
+
 const NEW_KINDS: Kind[] = [
   {
     word: 'axolotl',
@@ -401,6 +403,10 @@ const NEW_KINDS: Kind[] = [
       `<rect x="12" y="15" width="40" height="31" fill="url(#body)" stroke="${p.inner}" stroke-width="1.1"/><rect x="15" y="18" width="9" height="3" fill="#fff" opacity=".35"/>`,
     feet: p =>
       `<g fill="${p.ear}" stroke="${p.inner}" stroke-width=".9"><rect x="15" y="46" width="5" height="6"/><rect class="foot f1" x="23" y="46" width="5" height="6"/><rect x="36" y="46" width="5" height="6"/><rect class="foot f2" x="44" y="46" width="5" height="6"/></g>`,
+    eyes: (_, mood) =>
+      BLOCK_EYED.has(mood)
+        ? `<g class="${mood === 'busy' ? 'glance' : 'blink'}"><g class="look"><rect x="22.6" y="25.6" width="4.2" height="9.4" fill="${INK}"/><rect x="37.2" y="25.6" width="4.2" height="9.4" fill="${INK}"/></g></g>`
+        : `<g class="look">${EYES[mood]}</g>`,
     react: `${NEAR} .flap{animation:flap .2s ease-in-out infinite alternate}`,
   },
 ]
@@ -727,11 +733,11 @@ const lookOf = (n: number): Look => {
     name,
     palette: guest?.palette ?? palette,
     kind: guest ?? kind,
-    marks,
-    wear,
+    marks: guest?.body ? '' : marks,
+    wear: guest?.body ? '' : wear,
     isEvil: false,
     quirk: QUIRKS[trait % QUIRKS.length] ?? NOSY,
-    face: (FACES[(trait >>> 4) % FACES.length] ?? FACES[0])?.(palette) ?? '',
+    face: guest?.body ? '' : ((FACES[(trait >>> 4) % FACES.length] ?? FACES[0])?.(palette) ?? ''),
     build: BUILDS[(trait >>> 8) % BUILDS.length] ?? '',
   }
 }
