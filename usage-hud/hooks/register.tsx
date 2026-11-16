@@ -577,8 +577,8 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'hud',
-      description: 'Toggle the usage HUD; /hud guard, /hud theme and /hud ttl change it',
-      argumentHint: '[guard on|off | theme <name> | ttl 5|60|auto]',
+      description: 'Toggle the usage HUD; /hud status prints it; /hud guard, /hud theme and /hud ttl change it',
+      argumentHint: '[status | guard on|off | theme <name> | ttl 5|60|auto]',
     })
     const id = await $.session.id().catch(() => '')
     await update($, sessionId, () => id)
@@ -715,7 +715,27 @@ export const register: Register = on => {
       await setTheme($, picked.name)
       return { text: `Usage HUD theme: ${picked.name}.` }
     }
-    if (word) return { text: 'Usage HUD: /hud shows or hides it; /hud guard on|off, /hud theme <name> and /hud ttl 5|60|auto change it.' }
+    if (word === 'status') {
+      const snap = await read($, snapshot)
+      const call = await read($, lastCall)
+      const t = Date.now()
+      const limit = (name: string, kind: Limit['kind']) => {
+        const l = current(snap?.limits.find(x => x.kind === kind), t)
+        if (!l) return `${name}: —`
+        const left = Math.round(Math.max(0, 100 - l.percentUsed))
+        return `${name}: ${left}% left${l.resetsAt ? `, resets in ${span(Date.parse(l.resetsAt) - t)}` : ''}`
+      }
+      const cacheLeft = call ? call.at + (await ttlMsOf($)) - t : 0
+      return {
+        text: [
+          limit('5h', 'five_hour'),
+          limit('Week', 'seven_day'),
+          `Cache: ${call ? (cacheLeft > 0 ? `warm for ${countdown(cacheLeft)}` : 'cold') : '—'}`,
+          `Context: ${Math.round(contextOf(snap).pct)}%`,
+        ].join('\n'),
+      }
+    }
+    if (word) return { text: 'Usage HUD: /hud shows or hides it; /hud status prints the gauges as text; /hud guard on|off, /hud theme <name> and /hud ttl 5|60|auto change it.' }
     const hidden = await update($, isHidden, h => !h)
     return { text: hidden ? 'Usage HUD hidden. /hud brings it back.' : 'Usage HUD shown.' }
   })
