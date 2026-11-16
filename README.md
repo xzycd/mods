@@ -50,7 +50,7 @@ Answer `y` to add the marketplace, then pick the user scope so the mods load in 
 - `/mochi boss` summons AUDA to the current project.
 - `/mochi night` summons NYX, and `/mochi grin` summons WISP.
 - `/mochi hide` hides the pet in every session, and running it again brings it back.
-- `/mochi crab` brings the pixel crab. While Claude works it types at a laptop; it throws its claws up when a turn lands and lets them hang when it dozes.
+- `/mochi crab` brings the pixel crab. While Claude works it types at a small laptop set down beside it; it throws its claws up when a turn lands and lets them hang when it dozes.
 - `/mochi rebirth` restarts a level 10 pet as a baby with a ★.
 - `/mochi tap` turns the press target over the pet off or on.
 - `⋯` beside the pet opens the same choices as buttons: new pet, AUDA, NYX, WISP, crab, theme, rebirth and hide.

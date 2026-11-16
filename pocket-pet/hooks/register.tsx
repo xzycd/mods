@@ -364,15 +364,14 @@ const CHEERS = new Set<Mood>(['happy', 'proud', 'love'])
 const crabCss = (mood: Mood) => {
   if (AT_DESK.has(mood)) {
     const beat = mood === 'dizzy' ? '.09s' : '.13s'
-    return `.a1{animation:tapl ${beat} steps(2,jump-none) infinite alternate}.a2{animation:tapr ${beat} steps(2,jump-none) -${beat} infinite alternate}.scan{animation:read 1.1s steps(5,jump-none) infinite}.key{animation:key .52s steps(2,jump-none) infinite}.k2{animation-delay:-.17s}.k3{animation-delay:-.35s}.lit{animation:lit 1.7s steps(3,jump-none) infinite}.f1{animation:kick .16s ease-in-out infinite alternate}.f2{animation:kick .16s ease-in-out -.16s infinite alternate}@keyframes tapl{from{transform:translate(2px,9px)}to{transform:translate(2px,12px)}}@keyframes tapr{from{transform:translate(-2px,9px)}to{transform:translate(-2px,12px)}}@keyframes read{from{transform:translate(-2px,2px)}to{transform:translate(2px,2px)}}@keyframes key{0%{opacity:0;transform:translateY(2px)}50%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-3px)}}@keyframes lit{from{opacity:.1}to{opacity:.28}}`
+    return `.a1{animation:tap ${beat} steps(2,jump-none) infinite alternate}.a2{animation:none}.scan{animation:read 1.1s steps(4,jump-none) infinite}.key{animation:key .52s steps(2,jump-none) infinite}.k2{animation-delay:-.26s}.lit{animation:lit 1.7s steps(3,jump-none) infinite}.f1{animation:kick .16s ease-in-out infinite alternate}.f2{animation:kick .16s ease-in-out -.16s infinite alternate}@keyframes tap{from{transform:translate(-1px,12px)}to{transform:translate(-1px,15px)}}@keyframes read{from{transform:translate(-3px,1.5px)}to{transform:translate(-1px,1.5px)}}@keyframes key{0%{opacity:0;transform:translateY(2px)}50%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-3px)}}@keyframes lit{from{opacity:.08}to{opacity:.24}}`
   }
   if (CHEERS.has(mood)) return '.flap{animation:cheer .32s ease-in-out infinite alternate}@keyframes cheer{from{transform:translateY(-9px)}to{transform:translateY(-12px)}}'
   if (mood === 'sleepy') return '.flap{animation:none;transform:translateY(4px)}'
   return '.flap{animation:wave 2.6s ease-in-out infinite}.scan{animation:scan 7s ease-in-out infinite}@keyframes wave{0%,68%,100%{transform:none}78%{transform:translateY(-3px)}88%{transform:translateY(-1px)}}@keyframes scan{0%,40%,100%{transform:none}48%,60%{transform:translateX(-2.2px)}72%,86%{transform:translateX(2.2px)}}'
 }
 
-const laptop = (p: Palette) =>
-  `<rect class="lit" x="17" y="27" width="30" height="6" fill="${p.glow}" opacity=".2"/><g fill="${p.glow}"><rect class="key" x="25" y="29" width="2" height="2"/><rect class="key k2" x="31" y="28" width="2" height="2"/><rect class="key k3" x="37" y="29" width="2" height="2"/></g><rect x="19" y="32" width="26" height="14" fill="#D9DDE4"/><rect x="19" y="44" width="26" height="2" fill="#B4BAC4"/><rect x="30" y="36" width="4" height="4" fill="${p.mid}"/><rect x="14" y="46" width="36" height="3" fill="#9299A4"/>`
+const LAPTOP = `<g fill="#FFE9DE"><rect class="key" x="4" y="41" width="1.6" height="1.6"/><rect class="key k2" x="7" y="38.5" width="1.6" height="1.6"/></g><path d="M.8 39.5 L5 50 H15.5" stroke="#9AA0AA" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
 
 const NEW_KINDS: Kind[] = [
   {
@@ -417,7 +416,8 @@ const NEW_KINDS: Kind[] = [
     body: p => `<rect x="10" y="15" width="44" height="26" fill="${p.mid}"/>`,
     feet: p =>
       `<g fill="${p.mid}"><rect class="foot f2" x="14" y="41" width="4" height="10"/><rect class="foot f1" x="22" y="41" width="4" height="10"/><rect class="foot f1" x="38" y="41" width="4" height="10"/><rect class="foot f2" x="46" y="41" width="4" height="10"/></g>`,
-    face: (p, mood) => (AT_DESK.has(mood) ? laptop(p) : ''),
+    face: (p, mood) => (AT_DESK.has(mood) ? `<rect class="lit" x="10" y="27" width="11" height="14" fill="${p.glow}" opacity=".16"/>` : ''),
+    aura: mood => (AT_DESK.has(mood) ? LAPTOP : ''),
     eyes: (_, mood) =>
       BLOCK_EYED.has(mood)
         ? `<g class="blink"><g class="look"><g class="scan"><rect x="19" y="21.5" width="5" height="6" fill="${INK}"/><rect x="40" y="21.5" width="5" height="6" fill="${INK}"/></g></g></g>`
