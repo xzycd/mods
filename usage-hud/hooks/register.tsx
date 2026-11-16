@@ -310,7 +310,8 @@ const hhmm = (ms: number) => {
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 
-const BLINK = `<style>.hud-b{animation:hud-b 1s steps(2,start) infinite}@keyframes hud-b{to{opacity:.3}}@media (prefers-reduced-motion:reduce){.hud-b{animation:none}}</style>`
+const MOTION = `.hud-b{animation:hud-b 1s steps(2,start) infinite}.hud-p{animation:hud-p 2.6s ease-in-out infinite}@keyframes hud-b{to{opacity:.3}}@keyframes hud-p{50%{opacity:.45}}@media (prefers-reduced-motion:reduce){.hud-b,.hud-p,.hud-s{animation:none}}`
+const GLOW = `<filter id="hud-g" x="-20%" y="-400%" width="140%" height="900%"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="hud-rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient><linearGradient id="hud-shine"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
 
 type Tile = {
   label: string
@@ -326,16 +327,21 @@ type Tile = {
 const meter = (th: Theme, x: number, y: number, width: number, n: number, gap: number, fill: number, lead: string, marker?: number) => {
   const w = (width - gap * (n - 1)) / n
   const lit = Math.round(clamp01(fill) * n)
-  const segs = Array.from({ length: n }, (_, i) => {
+  const seg = (i: number) => {
     const color = i >= lit ? th.off : i === lit - 1 ? th.head : lead
-    return `<rect x="${(x + i * (w + gap)).toFixed(2)}" y="${y}" width="${w.toFixed(2)}" height="3" rx=".6" fill="${color}"/>`
-  }).join('')
+    return `<rect${i === lit - 1 ? ' class="hud-p"' : ''} x="${(x + i * (w + gap)).toFixed(2)}" y="${y}" width="${w.toFixed(2)}" height="3" rx=".6" fill="${color}"/>`
+  }
+  const all = Array.from({ length: n }, (_, i) => seg(i))
+  const segs = `${all.slice(lit).join('')}<g filter="url(#hud-g)">${all.slice(0, lit).join('')}</g>`
   const tick = marker === undefined ? '' : `<rect x="${(x + clamp01(marker) * width - 0.6).toFixed(2)}" y="${y - 2}" width="1.2" height="7" fill="${th.text}"/>`
   return segs + tick
 }
 
-const frame = (th: Theme, width: number, height: number, body: string) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">${BLINK}<g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${width - 1}" height="${height - 1}" rx="7" fill="${th.ink}" stroke="${th.edge}"/>${body}</g></svg>`
+const frame = (th: Theme, width: number, height: number, body: string) => {
+  const id = `${th.name}-${width}-${height}`
+  const box = `x=".5" y=".5" width="${width - 1}" height="${height - 1}" rx="7"`
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><defs>${GLOW}<radialGradient id="hud-a-${id}" gradientUnits="userSpaceOnUse" cx="0" cy="${height}" r="${Math.min(width * 0.45, 220)}"><stop offset="0" stop-color="${th.accent}" stop-opacity=".2"/><stop offset="1" stop-color="${th.accent}" stop-opacity="0"/></radialGradient><clipPath id="hud-c-${id}"><rect ${box}/></clipPath><style>${MOTION}.hud-s{animation:hud-s-${id} 9s ease-in-out infinite}@keyframes hud-s-${id}{0%,70%{transform:translateX(-90px)}100%{transform:translateX(${width}px)}}</style></defs><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect ${box} fill="${th.ink}" stroke="${th.edge}"/><g clip-path="url(#hud-c-${id})"><rect width="${width}" height="${height}" fill="url(#hud-a-${id})"/><rect class="hud-s" width="90" height="${height}" fill="url(#hud-shine)" transform="translate(-90 0)"/></g><rect ${box} fill="none" stroke="url(#hud-rim)"/>${body}</g></svg>`
+}
 
 const cell = (th: Theme, w: number, { label, meta, value, unit, fill, marker, isAlarm, isEmpty }: Tile) => {
   const lead = isAlarm ? th.alarm : th.accent
