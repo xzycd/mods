@@ -305,6 +305,7 @@ type Kind = {
   defs?: (p: Palette) => string
   css?: (mood: Mood) => string
   eyes?: (p: Palette, mood: Mood) => string
+  squint?: string
   mouth?: (p: Palette, mood: Mood) => string | undefined
   react?: string
   palette?: Palette
@@ -359,9 +360,24 @@ const KINDS: Kind[] = [
 
 const BLOCK_EYED = new Set<Mood>(['idle', 'busy', 'bored', 'hungry', 'worried', 'sad'])
 const AT_DESK = new Set<Mood>(['busy', 'dizzy'])
+const PIX = (d: string) => `<path d="${d}" stroke="${INK}" stroke-width="1.8" fill="none" stroke-linecap="square" stroke-linejoin="miter"/>`
+const PIX_HEART = (x: number) =>
+  `<g fill="#FF4D8D"><rect x="${x - 2.5}" y="22" width="2" height="2"/><rect x="${x + 0.5}" y="22" width="2" height="2"/><rect x="${x - 2.5}" y="23.5" width="5" height="2"/><rect x="${x - 1.5}" y="25.5" width="3" height="1.5"/><rect x="${x - 0.5}" y="27" width="1" height="1"/></g>`
+const CRAB_ARCS = PIX('M19.5 26 L21.5 23 L23.5 26 M40.5 26 L42.5 23 L44.5 26')
+const CRAB_EYES: Partial<Record<Mood, string>> = {
+  happy: CRAB_ARCS,
+  proud: CRAB_ARCS,
+  eating: CRAB_ARCS,
+  love: `${PIX_HEART(21.5)}${PIX_HEART(42.5)}`,
+  dizzy: `<g fill="none" stroke="${INK}" stroke-width="1.4"><rect class="spin" x="19.5" y="22.5" width="4" height="4"/><rect class="spin" x="40.5" y="22.5" width="4" height="4"/></g>`,
+  oops: PIX('M19.5 22.5 L23.5 24.5 L19.5 26.5 M44.5 22.5 L40.5 24.5 L44.5 26.5'),
+  sleepy: `<g fill="${INK}"><rect x="19" y="25" width="5" height="1.6"/><rect x="40" y="25" width="5" height="1.6"/></g>`,
+}
 const CHEERS = new Set<Mood>(['happy', 'proud', 'love'])
 
-const crabCss = (mood: Mood) => {
+const crabCss = (mood: Mood) => `.blink{transform-origin:32px 24.5px}${crabMoves(mood)}`
+
+const crabMoves = (mood: Mood) => {
   if (AT_DESK.has(mood)) {
     const beat = mood === 'dizzy' ? '.09s' : '.13s'
     return `.a1{animation:tap ${beat} steps(2,jump-none) infinite alternate}.a2{animation:none}.scan{animation:read 1.1s steps(4,jump-none) infinite}.key{animation:key .52s steps(2,jump-none) infinite}.k2{animation-delay:-.26s}.lit{animation:lit 1.7s steps(3,jump-none) infinite}.f1{animation:kick .16s ease-in-out infinite alternate}.f2{animation:kick .16s ease-in-out -.16s infinite alternate}@keyframes tap{from{transform:translate(-1px,12px)}to{transform:translate(-1px,15px)}}@keyframes read{from{transform:translate(-3px,1.5px)}to{transform:translate(-1px,1.5px)}}@keyframes key{0%{opacity:0;transform:translateY(2px)}50%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-3px)}}@keyframes lit{from{opacity:.08}to{opacity:.24}}`
@@ -421,7 +437,8 @@ const NEW_KINDS: Kind[] = [
     eyes: (_, mood) =>
       BLOCK_EYED.has(mood)
         ? `<g class="blink"><g class="look"><g class="scan"><rect x="19" y="21.5" width="5" height="6" fill="${INK}"/><rect x="40" y="21.5" width="5" height="6" fill="${INK}"/></g></g></g>`
-        : `<g class="look">${EYES[mood]}</g>`,
+        : `<g class="look">${CRAB_EYES[mood] ?? EYES[mood]}</g>`,
+    squint: CRAB_ARCS,
     mouth: (_, mood) => (BLOCK_EYED.has(mood) ? '' : undefined),
     css: crabCss,
     react: `${NEAR} .flap{animation:none;transform:translateY(-3px)}${NEAR} .scan{animation:none}`,
@@ -950,9 +967,9 @@ const pet = (mood: Mood, { palette: p, kind, marks, wear, isEvil, quirk, face, b
   const mouth = MOUTH[mood]
   const isTracked = TRACKED.has(mood)
   const eyes = kind.eyes?.(p, mood) ?? `<g class="look">${EYES[mood].replaceAll(INK, ink)}</g>`
-  const squint = kind.eyes
+  const squint = kind.squint ?? (kind.eyes
     ? `<path d="M19.6 32 Q24 26.6 28.4 32 M35.6 32 Q40 26.6 44.4 32" stroke="${ink}" stroke-width="2" fill="none" stroke-linecap="round"/>`
-    : ARCS.replaceAll(INK, ink)
+    : ARCS.replaceAll(INK, ink))
   const nuzzle = NUZZLES.has(mood) ? `<g class="nz">${squint}</g>` : ''
   const pace = { ...DRIFTS, ...kind.drifts }[mood]
   const drift = pace && whim > 0 && whim % 100 < pace.chance ? pace : undefined

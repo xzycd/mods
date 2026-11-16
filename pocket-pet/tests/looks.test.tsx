@@ -225,3 +225,27 @@ test('the crab types at a laptop only while Claude works', async ($, on) => {
   expect(source).toMatch(/\.a1\{animation:tap-/)
   await working.unmount()
 })
+
+test('the crab keeps its eyes where its square eyes sit in every mood', async ($, on) => {
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', () => ({ value: { command: 'mochi' } }))
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('clock.every', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  await $.session.start({ cwd: '/work/shop', surface: 'desktop', isInteractive: true })
+
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  await ui.press({ key: 'more' })
+  await ui.press({ key: 'crab' })
+  await ui.press({ key: 'pet' })
+  const { source } = await petSvg(ui)
+  expect(source).toContain('fill="#FF4D8D"><rect x="19"')
+  expect(source).toContain('.blink{transform-origin:32px 24.5px}')
+  expect(source).not.toContain('M25 34 l-3-3')
+  await ui.unmount()
+})
