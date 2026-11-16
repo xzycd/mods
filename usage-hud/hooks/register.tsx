@@ -334,11 +334,14 @@ const meter = (th: Theme, x: number, y: number, width: number, n: number, gap: n
   return segs + tick
 }
 
-const tile = (th: Theme, { label, meta, value, unit, fill, marker, isAlarm, isEmpty }: Tile) => {
+const frame = (th: Theme, width: number, height: number, body: string) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">${BLINK}<g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${width - 1}" height="${height - 1}" rx="7" fill="${th.ink}" stroke="${th.edge}"/>${body}</g></svg>`
+
+const cell = (th: Theme, w: number, { label, meta, value, unit, fill, marker, isAlarm, isEmpty }: Tile) => {
   const lead = isAlarm ? th.alarm : th.accent
-  const bar = meter(th, 8, 32, TILE_W - 16, 20, 1.2, isEmpty ? 0 : fill, lead, isEmpty ? undefined : marker)
+  const bar = meter(th, 10, 32, w - 20, 20, 1.2, isEmpty ? 0 : fill, lead, isEmpty ? undefined : marker)
   const ink = isEmpty ? th.mute : isAlarm ? th.alarm : th.text
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TILE_W} ${TILE_H}" width="${TILE_W}" height="${TILE_H}">${BLINK}<g font-family="${MONO}" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${TILE_W - 1}" height="${TILE_H - 1}" rx="7" fill="${th.ink}" stroke="${isAlarm ? th.alarm : th.edge}" stroke-opacity="${isAlarm ? 0.55 : 1}"/><rect class="${isAlarm ? 'hud-b' : ''}" x="8" y="7.5" width="3" height="3" fill="${isEmpty ? th.off : lead}"/><text x="15" y="11" font-size="7.5" letter-spacing="1.3" fill="${th.mute}">${label}</text><text x="${TILE_W - 8}" y="11" font-size="7.5" text-anchor="end" fill="${th.mute}">${meta}</text><text class="${isAlarm ? 'hud-b' : ''}" x="8" y="26" font-size="14" font-weight="600" fill="${ink}">${value}${unit ? `<tspan font-size="8" fill="${th.mute}" dx="1">${unit}</tspan>` : ''}</text>${bar}</g></svg>`
+  return `<rect class="${isAlarm ? 'hud-b' : ''}" x="10" y="7.5" width="3" height="3" fill="${isEmpty ? th.off : lead}"/><text x="17" y="11" font-size="7.5" letter-spacing="1.3" fill="${th.mute}">${label}</text><text x="${w - 10}" y="11" font-size="7.5" text-anchor="end" fill="${th.mute}">${meta}</text><text class="${isAlarm ? 'hud-b' : ''}" x="10" y="26" font-size="14" font-weight="600" fill="${ink}">${value}${unit ? `<tspan font-size="8" fill="${th.mute}" dx="1">${unit}</tspan>` : ''}</text>${bar}`
 }
 
 type Readout = { key: string; value: string; note?: string; isAlarm?: boolean; fill?: number; marker?: number }
@@ -371,11 +374,7 @@ const strip = (th: Theme, items: Readout[]) => {
     x += sep
     return out.join('')
   })
-  const width = Math.ceil(x - sep + pad)
-  return {
-    width,
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 24" width="${width}" height="24"><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${width - 1}" height="23" rx="7" fill="${th.ink}" stroke="${th.edge}"/>${parts.join('')}</g></svg>`,
-  }
+  return { width: Math.ceil(x - sep + pad), body: parts.join('') }
 }
 
 type Part = { key: string; label: string; n: number; color: string; note: string }
@@ -410,15 +409,21 @@ const stackBar = (th: Theme, label: string, value: string, parts: Part[], scale:
   const width = Math.ceil(x)
   return {
     width,
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 24" width="${width}" height="24"><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${width - 1}" height="23" rx="7" fill="${th.ink}" stroke="${th.edge}"/><rect x="10" y="10.5" width="3" height="3" fill="${th.accent}"/><text x="${10 + 1.5 * ch}" y="15.5" fill="${th.mute}" letter-spacing="1.2">${label}</text><text x="${totalX.toFixed(1)}" y="15.5" fill="${th.text}" font-weight="600">${value}</text>${segs}${legend}</g></svg>`,
+    body: `<rect x="10" y="10.5" width="3" height="3" fill="${th.accent}"/><text x="${10 + 1.5 * ch}" y="15.5" fill="${th.mute}" letter-spacing="1.2">${label}</text><text x="${totalX.toFixed(1)}" y="15.5" fill="${th.text}" font-weight="600">${value}</text>${segs}${legend}`,
   }
 }
 
-const widen = <T extends { width: number; source: string }>(bar: T, to: number): T => ({
-  ...bar,
-  width: to,
-  source: bar.source.replace(`viewBox="0 0 ${bar.width} 24" width="${bar.width}"`, `viewBox="0 0 ${to} 24" width="${to}"`).replace(`width="${bar.width - 1}" height="23"`, `width="${to - 1}" height="23"`),
-})
+const ROW_H = 20
+
+const panel = (th: Theme, tiles: Tile[], rows: { width: number; body: string }[]) => {
+  const width = Math.max(tiles.length * TILE_W, ...rows.map(r => r.width))
+  const w = width / tiles.length
+  const cells = tiles.map((x, i) => `${i ? `<rect x="${w * i}" y="8" width="1" height="${TILE_H - 14}" fill="${th.edge}"/>` : ''}<g transform="translate(${w * i} 0)">${cell(th, w, x)}</g>`)
+  const lines = rows.map((r, i) => `<g transform="translate(0 ${TILE_H + 4 + i * ROW_H})">${r.body}</g>`)
+  const height = TILE_H + (rows.length ? 10 + rows.length * ROW_H : 0)
+  const rule = rows.length ? `<rect x="10" y="${TILE_H + 3}" width="${width - 20}" height="1" fill="${th.edge}"/>` : ''
+  return { width, height, source: frame(th, width, height, cells.join('') + rule + lines.join('')) }
+}
 
 const tokenBar = (th: Theme, t: Totals, label: string, name: string) => {
   const parts = [
@@ -713,12 +718,14 @@ export const register: Register = on => {
     const below = await next(e)
     if (e.props.hasSurvey) return below
     if (await read($, isHidden)) {
-      const { Box, Button } = $.ui.resolve(e)
+      const { Box, Button, Text } = $.ui.resolve(e)
       return (
         <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
           {below}
           <Button key="show" plain dimColor onPress={() => update($, isHidden, () => false)}>
-            usage ▸
+            <Text size="caption" mono dimColor>
+              usage
+            </Text>
           </Button>
         </Box>
       )
@@ -794,13 +801,13 @@ export const register: Register = on => {
       )
     }
 
-    const { Box, Button, Svg } = $.ui.resolve(e)
+    const { Box, Button, Svg, Text } = $.ui.resolve(e)
 
-    type Gauge = { source: string; alt: string; chip: Readout; isHot: boolean }
+    type Gauge = { tile: Tile; alt: string; chip: Readout }
 
     const limitGauge = (label: string, key: string, name: string, l: Limit | undefined): Gauge => {
       if (!l) {
-        return { source: tile(th, { label, meta: '', value: '—', fill: 0, isEmpty: true }), alt: `${name}: no reading yet`, chip: { key, value: '—' }, isHot: false }
+        return { tile: { label, meta: '', value: '—', fill: 0, isEmpty: true }, alt: `${name}: no reading yet`, chip: { key, value: '—' } }
       }
       const w = watch(l)
       const total = WINDOW_MS[l.kind]
@@ -809,10 +816,9 @@ export const register: Register = on => {
       const marker = reset && total ? (reset - t) / total : undefined
       const value = `${Math.round(w.left)}`
       return {
-        source: tile(th, { label, meta, value, unit: '%', fill: w.left / 100, marker, isAlarm: w.isAlarm }),
+        tile: { label, meta, value, unit: '%', fill: w.left / 100, marker, isAlarm: w.isAlarm },
         alt: `${name}: ${value}% left${reset ? `, resets in ${span(reset - t)}` : ''}`,
-        chip: { key, value: `${value}%`, fill: w.left / 100, marker, note: meta },
-        isHot: w.isHot,
+        chip: { key, value: `${value}%`, fill: w.left / 100, marker, note: meta, isAlarm: w.isAlarm },
       }
     }
 
@@ -821,22 +827,21 @@ export const register: Register = on => {
       limitGauge('5H', '5H', '5-hour limit', five),
       limitGauge('WEEK', 'WK', 'Weekly limit', week),
       {
-        source: tile(th, {
+        tile: {
           label: cacheLabel,
           meta: call ? compact(call.cacheRead) : `${ttlMs / 60000}M`,
           value: cacheValue,
           fill: isWarm ? cacheLeft / ttlMs : 0,
           isAlarm: isCooling,
           isEmpty: !isWarm,
-        }),
+        },
         alt: call
           ? `Cache ${isWarm ? `warm for ${countdown(cacheLeft)}` : 'cold'}, last read ${compact(call.cacheRead)} tokens${isOn ? ', guard on' : ''}`
           : 'Cache: no reply yet',
-        chip: { key: cacheLabel, value: cacheValue, fill: isWarm ? cacheLeft / ttlMs : undefined },
-        isHot: isWarm && cacheLeft < Math.min(300e3, ttlMs / 2),
+        chip: { key: cacheLabel, value: cacheValue, fill: isWarm ? cacheLeft / ttlMs : undefined, isAlarm: isCooling },
       },
       {
-        source: tile(th, {
+        tile: {
           label: 'CTX',
           meta: compact(ctx.tokens),
           value: `${ctxPct}`,
@@ -844,15 +849,11 @@ export const register: Register = on => {
           fill: ctx.pct / 100,
           isAlarm: isCtxHigh,
           isEmpty: !snap,
-        }),
+        },
         alt: `Context ${ctxPct}% used, ${compact(ctx.tokens)} of ${compact(snap?.contextWindow ?? 0)} tokens`,
-        chip: snap ? { key: 'CTX', value: `${ctxPct}%`, fill: ctx.pct / 100 } : { key: 'CTX', value: '—' },
-        isHot: ctxPct >= 60,
+        chip: snap ? { key: 'CTX', value: `${ctxPct}%`, fill: ctx.pct / 100, isAlarm: isCtxHigh } : { key: 'CTX', value: '—' },
       },
     ]
-    const calm = expanded ? [] : gauges.filter(g => !g.isHot)
-    const dock = calm.length ? strip(th, calm.map(g => g.chip)) : null
-    const tiles = expanded ? gauges : gauges.filter(g => g.isHot)
 
     const readout = (key: string, l: Limit | undefined): Readout | null => {
       const p = l && pace(l, t)
@@ -871,7 +872,7 @@ export const register: Register = on => {
       sumPrompt ? { key: 'HIT', value: `${Math.round(sumHit * 100)}%`, note: call ? `LAST ${Math.round(hit * 100)}%` : undefined } : null,
       snap?.usd === undefined ? null : { key: 'COST', value: `$${snap.usd.toFixed(2)}` },
     ].filter((r): r is Readout => r !== null)
-    const details = facts.length ? strip(th, facts) : null
+    const details = facts.length ? { ...strip(th, facts), alt: facts.map(f => [f.key, f.value, f.note].filter(Boolean).join(' ')).join(', ') } : null
 
     const tokens = tokenBar(th, session, 'SESSION', 'Session')
     const allTokens = tokenBar(th, plus(await read($, lifetime), fromScan), 'LIFETIME', 'Lifetime')
@@ -884,50 +885,37 @@ export const register: Register = on => {
     }
 
     const rows = [tokens, allTokens, window, details].filter(r => r !== null)
-    const wide = Math.max(...rows.map(r => r.width))
     const ttlNow = ttlMin === 5 ? '5m' : ttlMin === 60 ? '1h' : 'auto'
+    const dock = strip(th, gauges.map(g => g.chip))
+    const open = expanded ? panel(th, gauges.map(g => g.tile), rows) : null
+    const alt = [...gauges, ...(open ? rows : [])].map(x => x.alt).join('; ')
+    const control = (key: string, label: string, onPress: () => unknown) => (
+      <Button key={key} plain dimColor onPress={onPress}>
+        <Text size="caption" mono dimColor>
+          {label}
+        </Text>
+      </Button>
+    )
 
     return (
-      <Box flexDirection="column" gap="xs" backgroundColor="#000000">
-        <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
-          {below}
-          {dock ? <Svg source={dock.source} alt={calm.map(g => g.alt).join('; ')} width={dock.width} height={24} /> : null}
-          {tiles.map(x => (
-            <Svg source={x.source} alt={x.alt} width={TILE_W} height={TILE_H} />
-          ))}
-          <Button key="more" plain dimColor onPress={onMore}>
-            {expanded ? '×' : '⋯'}
-          </Button>
-        </Box>
-        {expanded
-          ? [
-              { ...widen(tokens, wide), alt: tokens.alt },
-              { ...widen(allTokens, wide), alt: allTokens.alt },
-              ...(window ? [{ ...widen(window, wide), alt: window.alt }] : []),
-              ...(details ? [{ ...widen(details, wide), alt: 'Pace, cache hit rate and cost' }] : []),
-            ].map(row => <Svg source={row.source} alt={row.alt} width={row.width} height={24} />)
-          : null}
-        {expanded ? (
-          <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
-            <Button key="ttl" plain dimColor onPress={() => setTtl($, ttlMin === 0 ? 5 : ttlMin === 5 ? 60 : 0)}>
-              {`ttl ${ttlNow} ▸`}
-            </Button>
-            <Button key="guard" plain dimColor onPress={() => setGuard($, !isOn)}>
-              {isOn ? 'guard on' : 'guard off'}
-            </Button>
-            {ctxPct >= 50 ? (
-              <Button key="compact" plain onPress={() => void $.session.compact()}>
-                compact
-              </Button>
-            ) : null}
-            <Button key="theme" plain dimColor onPress={() => setTheme($, nextTheme(th.name).name)}>
-              {`${th.name} ▸`}
-            </Button>
-            <Button key="hide" plain dimColor onPress={() => update($, isHidden, () => true)}>
-              hide
-            </Button>
+      <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
+        {below}
+        <Box flexDirection="column" gap="xs">
+          <Box flexDirection="row" alignItems="center" gap={1}>
+            {open ? <Svg source={open.source} alt={alt} width={open.width} height={open.height} /> : <Svg source={frame(th, dock.width, 24, dock.body)} alt={alt} width={dock.width} height={24} />}
+            {open ? null : control('more', '⋯', onMore)}
           </Box>
-        ) : null}
+          {open ? (
+            <Box flexDirection="row" alignItems="center" gap={2}>
+              {control('ttl', `ttl ${ttlNow}`, () => setTtl($, ttlMin === 0 ? 5 : ttlMin === 5 ? 60 : 0))}
+              {control('guard', isOn ? 'guard on' : 'guard off', () => setGuard($, !isOn))}
+              {ctxPct >= 50 ? control('compact', 'compact', () => void $.session.compact()) : null}
+              {control('theme', th.name, () => setTheme($, nextTheme(th.name).name))}
+              {control('hide', 'hide', () => update($, isHidden, () => true))}
+              {control('more', 'close ×', onMore)}
+            </Box>
+          ) : null}
+        </Box>
       </Box>
     )
   }).catch(async ($, e, next) => {

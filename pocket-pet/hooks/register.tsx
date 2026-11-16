@@ -298,7 +298,7 @@ type Kind = {
   word: string
   ears: (p: Palette) => string
   tail: (p: Palette) => string
-  wings?: (p: Palette) => string
+  wings?: (p: Palette, mood: Mood) => string
   face?: (p: Palette, mood: Mood) => string
   aura?: (mood: Mood) => string
   back?: (p: Palette) => string
@@ -358,6 +358,21 @@ const KINDS: Kind[] = [
 ]
 
 const BLOCK_EYED = new Set<Mood>(['idle', 'busy', 'bored', 'hungry', 'worried', 'sad'])
+const AT_DESK = new Set<Mood>(['busy', 'dizzy'])
+const CHEERS = new Set<Mood>(['happy', 'proud', 'love'])
+
+const crabCss = (mood: Mood) => {
+  if (AT_DESK.has(mood)) {
+    const beat = mood === 'dizzy' ? '.09s' : '.13s'
+    return `.a1{animation:tapl ${beat} steps(2,jump-none) infinite alternate}.a2{animation:tapr ${beat} steps(2,jump-none) -${beat} infinite alternate}.scan{animation:read 1.1s steps(5,jump-none) infinite}.key{animation:key .52s steps(2,jump-none) infinite}.k2{animation-delay:-.17s}.k3{animation-delay:-.35s}.lit{animation:lit 1.7s steps(3,jump-none) infinite}.f1{animation:kick .16s ease-in-out infinite alternate}.f2{animation:kick .16s ease-in-out -.16s infinite alternate}@keyframes tapl{from{transform:translate(2px,9px)}to{transform:translate(2px,12px)}}@keyframes tapr{from{transform:translate(-2px,9px)}to{transform:translate(-2px,12px)}}@keyframes read{from{transform:translate(-2px,2px)}to{transform:translate(2px,2px)}}@keyframes key{0%{opacity:0;transform:translateY(2px)}50%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-3px)}}@keyframes lit{from{opacity:.1}to{opacity:.28}}`
+  }
+  if (CHEERS.has(mood)) return '.flap{animation:cheer .32s ease-in-out infinite alternate}@keyframes cheer{from{transform:translateY(-9px)}to{transform:translateY(-12px)}}'
+  if (mood === 'sleepy') return '.flap{animation:none;transform:translateY(4px)}'
+  return '.flap{animation:wave 2.6s ease-in-out infinite}.scan{animation:scan 7s ease-in-out infinite}@keyframes wave{0%,68%,100%{transform:none}78%{transform:translateY(-3px)}88%{transform:translateY(-1px)}}@keyframes scan{0%,40%,100%{transform:none}48%,60%{transform:translateX(-2.2px)}72%,86%{transform:translateX(2.2px)}}'
+}
+
+const laptop = (p: Palette) =>
+  `<rect class="lit" x="17" y="27" width="30" height="6" fill="${p.glow}" opacity=".2"/><g fill="${p.glow}"><rect class="key" x="25" y="29" width="2" height="2"/><rect class="key k2" x="31" y="28" width="2" height="2"/><rect class="key k3" x="37" y="29" width="2" height="2"/></g><rect x="19" y="32" width="26" height="14" fill="#D9DDE4"/><rect x="19" y="44" width="26" height="2" fill="#B4BAC4"/><rect x="30" y="36" width="4" height="4" fill="${p.mid}"/><rect x="14" y="46" width="36" height="3" fill="#9299A4"/>`
 
 const NEW_KINDS: Kind[] = [
   {
@@ -397,17 +412,18 @@ const NEW_KINDS: Kind[] = [
     palette: { light: '#D97757', mid: '#D97757', deep: '#D97757', ear: '#D97757', inner: '#B5573A', cheek: '#D97757', accent: '#E8825E', glow: '#FFD9C9', trim: '#FFD166' },
     ears: () => '',
     tail: () => '',
-    wings: p => mirror(`<g class="flap"><rect x="5" y="26" width="6" height="7" fill="${p.mid}"/></g>`),
+    wings: p =>
+      `<g fill="${p.mid}"><g class="flap a1"><rect x="5" y="26" width="6" height="7"/></g><g class="flap a2"><rect x="53" y="26" width="6" height="7"/></g></g>`,
     body: p => `<rect x="10" y="15" width="44" height="26" fill="${p.mid}"/>`,
     feet: p =>
-      `<g fill="${p.mid}"><rect x="14" y="41" width="4" height="10"/><rect class="foot f1" x="22" y="41" width="4" height="10"/><rect x="38" y="41" width="4" height="10"/><rect class="foot f2" x="46" y="41" width="4" height="10"/></g>`,
+      `<g fill="${p.mid}"><rect class="foot f2" x="14" y="41" width="4" height="10"/><rect class="foot f1" x="22" y="41" width="4" height="10"/><rect class="foot f1" x="38" y="41" width="4" height="10"/><rect class="foot f2" x="46" y="41" width="4" height="10"/></g>`,
+    face: (p, mood) => (AT_DESK.has(mood) ? laptop(p) : ''),
     eyes: (_, mood) =>
       BLOCK_EYED.has(mood)
-        ? `<g class="${mood === 'busy' ? 'glance' : 'blink'}"><g class="look"><g class="scan"><rect x="19" y="21.5" width="5" height="6" fill="${INK}"/><rect x="40" y="21.5" width="5" height="6" fill="${INK}"/></g></g></g>`
+        ? `<g class="blink"><g class="look"><g class="scan"><rect x="19" y="21.5" width="5" height="6" fill="${INK}"/><rect x="40" y="21.5" width="5" height="6" fill="${INK}"/></g></g></g>`
         : `<g class="look">${EYES[mood]}</g>`,
     mouth: (_, mood) => (BLOCK_EYED.has(mood) ? '' : undefined),
-    css: mood =>
-      `.flap{animation:wave 2.6s ease-in-out infinite}.scan{animation:scan 7s ease-in-out infinite}@keyframes wave{0%,68%,100%{transform:none}78%{transform:translateY(-3px)}88%{transform:translateY(-1px)}}@keyframes scan{0%,40%,100%{transform:none}48%,60%{transform:translateX(-2.2px)}72%,86%{transform:translateX(2.2px)}}${mood === 'busy' || mood === 'dizzy' ? '.f1{animation:kick .16s ease-in-out infinite alternate}.f2{animation:kick .16s ease-in-out -.16s infinite alternate}' : ''}`,
+    css: crabCss,
     react: `${NEAR} .flap{animation:none;transform:translateY(-3px)}${NEAR} .scan{animation:none}`,
   },
 ]
@@ -1018,7 +1034,7 @@ ${kind.back?.(p) ?? ''}
 <g class="dusk"><ellipse class="shadow" cx="32" cy="52" rx="17" ry="2.6" fill="${INK}"/></g>
 <g${grow < 1 ? ` transform="matrix(${grow} 0 0 ${grow} ${+(32 * (1 - grow)).toFixed(2)} ${+(50 * (1 - grow)).toFixed(2)})"` : ''}><g${build ? ` transform="${build}"` : ''}><g class="bob"><g class="lean"><g class="squash"><g class="${wrap}">
 <g class="veil">
-${kind.wings?.(p) ?? ''}
+${kind.wings?.(p, mood) ?? ''}
 <g class="swish"><g class="wag">${kind.tail(p)}</g></g>
 <g class="ears"><g class="flick">${kind.ears(p)}</g></g>
 ${

@@ -200,3 +200,28 @@ test('⋯ opens a menu that swaps the pet without a command', async ($, on) => {
   expect(crab.source).toContain('<rect class="foot f1"')
   await ui.unmount()
 })
+
+test('the crab types at a laptop only while Claude works', async ($, on) => {
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', () => ({ value: { command: 'mochi' } }))
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('clock.every', () => ({ value: undefined }))
+  await $.session.start({ cwd: '/work/shop', surface: 'desktop', isInteractive: true })
+
+  const resting = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  await resting.press({ key: 'more' })
+  await resting.press({ key: 'crab' })
+  expect((await petSvg(resting)).source).not.toContain('#D9DDE4')
+  await resting.unmount()
+
+  const working = await $.ui.mount({ ...BAND, props: { ...BAND.props, isWorking: true }, surface: 'desktop' })
+  const { source } = await petSvg(working)
+  expect(source).toContain('#D9DDE4')
+  expect(source).toMatch(/\.a1\{animation:tapl/)
+  await working.unmount()
+})
