@@ -1252,6 +1252,8 @@ const kept = async ($: EngineInterface, key: string) => {
   }
 }
 
+const own = async ($: EngineInterface, key: 'base' | 'stars') => `${key}:${await read($, project)}`
+
 const sync = async ($: EngineInterface) => {
   const storedPets = await stored($, 'pets')
   await update($, pets, n => Math.max(n, storedPets))
@@ -1263,9 +1265,9 @@ const sync = async ($: EngineInterface) => {
   await update($, isHidden, () => hidden)
   const skin = await $.store.get('theme')
   if (typeof skin === 'string' && skin in SKINS) await update($, theme, () => skin)
-  const storedBase = await stored($, 'base')
+  const storedBase = await stored($, await own($, 'base'))
   await update($, base, n => Math.max(n, storedBase))
-  const storedStars = await stored($, 'stars')
+  const storedStars = await stored($, await own($, 'stars'))
   await update($, stars, n => Math.max(n, storedStars))
   const tappable = (await $.store.get('tap')) !== false
   await update($, isTappable, () => tappable)
@@ -1279,8 +1281,8 @@ const rebirth = async ($: EngineInterface) => {
   const spent = xpOf(turnCount, petCount)
   const reborn = await update($, stars, n => n + 1)
   await update($, base, () => spent)
-  await $.store.set('base', spent)
-  await $.store.set('stars', reborn)
+  await $.store.set(await own($, 'base'), spent)
+  await $.store.set(await own($, 'stars'), reborn)
   await $.store.set('dry', 6)
   return `${lookOf(await read($, seed)).name} is reborn as a baby and wears ${'★'.repeat(Math.min(reborn, 3))}. The next new pet is a rare one.`
 }
@@ -1479,10 +1481,10 @@ export const register: Register = on => {
       const storedPets = await stored($, 'pets')
       const total = await update($, pets, n => Math.max(n, storedPets) + 1)
       await $.store.set('pets', total)
-      cheerLevel($, look, levelOf(await read($, turns), total - 1, spent), levelOf(await read($, turns), total, spent))
+      cheerLevel($, home, levelOf(await read($, turns), total - 1, spent), levelOf(await read($, turns), total, spent))
       await poke($)
       await pulse($, 'love', LOVE_MS)
-      if (total % 25 === 0) $.ui.toast(look.isEvil ? `${BOSS} has tolerated ${total} pets ♥` : `${look.name} has been petted ${total} times ♥`)
+      if (total % 25 === 0) $.ui.toast(home.isEvil ? `${BOSS} has tolerated ${total} pets ♥` : `${home.name} has been petted ${total} times ♥`)
     }
 
     const onFeed = async () => {
