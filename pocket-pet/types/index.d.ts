@@ -27,7 +27,6 @@ declare module 'claude-code' {
       base: number
       stars: number
       isTappable: boolean
-      theme: string
     }
   }
 }
