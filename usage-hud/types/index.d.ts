@@ -17,7 +17,7 @@ export type LastCall = {
 
 export type Totals = { cacheRead: number; cacheWrite: number; input: number; output: number }
 
-export type Tallies = Record<string, { size: number; mtimeMs: number; t: Totals; lastId?: string; lastAt?: string }>
+export type Tallies = Record<string, { size: number; mtimeMs: number; t: Totals; dup?: Totals; firstId?: string; lastId?: string; lastAt?: string }>
 
 export type ContextView = { parts: { name: string; tokens: number }[]; total: number; max: number }
 
@@ -40,6 +40,7 @@ declare module 'claude-code' {
       isGuarded: boolean
       ttlMinutes: number
       ttlSeen: number
+      replyAt: number
       sessionId: string
       theme: string
     }

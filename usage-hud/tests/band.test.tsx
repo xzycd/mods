@@ -39,3 +39,31 @@ test('the band draws limits and expands on every surface', async ($, on) => {
     await ui.unmount()
   }
 })
+
+test('calm gauges fold into one strip; an early burst or a passed reset raises no alarm', async ($, on) => {
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+  await $.session.measure({
+    context: { tokens: 40000, window: 200000, percent: 20 },
+    rateLimits: [
+      { kind: 'five_hour', percentUsed: 4, resetsAt: new Date(Date.now() + 295 * 60e3).toISOString() },
+      { kind: 'seven_day', percentUsed: 95, resetsAt: new Date(Date.now() - 60e3).toISOString() },
+    ],
+    changed: ['context', 'rateLimits'],
+  })
+
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  const strip = await ui.find({ type: 'Svg' })
+  expect(strip?.props.height).toBe(24)
+  expect(String(strip?.props.alt)).toContain('5-hour limit: 96% left')
+  expect(String(strip?.props.alt)).toContain('Weekly limit: 100% left')
+  await ui.press({ key: 'more' })
+  const open = JSON.stringify(await ui.find({ type: 'Box' }))
+  expect(open).not.toContain('"height":24')
+  expect(open).toContain('Lifetime tokens')
+  expect(open).not.toContain('DRY')
+  await ui.unmount()
+})

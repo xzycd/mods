@@ -1,4 +1,5 @@
 import { expect, test } from 'claude-code/testing'
+import type { TestBody } from 'claude-code/testing'
 
 const BAND = {
   plugin: 'usage-hud',
@@ -86,4 +87,61 @@ test('/hud theme recolours the band and names the themes', async ($, on) => {
 
   const { text } = await $.command.run({ command: 'hud', args: 'theme neon', ...RUN })
   expect(text).toBe('Usage HUD themes: ember, ice, mint, gold, violet, mono.')
+})
+
+test('/hud status prints the gauges as text', async ($, on) => {
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  const reset = new Date(Date.now() + 2 * 3600e3 + 30e3).toISOString()
+  await $.session.measure({
+    context: { tokens: 84000, window: 200000, percent: 42 },
+    rateLimits: [{ kind: 'five_hour', percentUsed: 30, resetsAt: reset }],
+    changed: ['context', 'rateLimits'],
+  })
+
+  const { text } = await $.command.run({ command: 'hud', args: 'status', ...RUN })
+  expect(text).toBe('5h: 70% left, resets in 2h 0m\nWeek: —\nCache: —\nContext: 42%')
+})
+
+test('the guard lets a prompt typed over a running turn through',async ($, on) => {
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('prompt.fill', (_, e) => ({ isFilled: true, text: e.text, cursor: e.text.length }))
+  await $.session.measure({ context: { tokens: 300000, window: 500000, percent: 60 }, rateLimits: [], changed: ['context'] })
+
+  expect((await $.prompt.submit({ text: 'also this', ...TYPED, turnId: 't1' })).text).toBe('also this')
+})
+
+const resumed = async (...[$, on]: Parameters<TestBody>) => {
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.id', () => ({ value: 's1' }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  on('command.register', () => ({ value: { command: 'hud' } }))
+  on('env.get', (_, e) => ({ value: e.name === 'HOME' ? '/h' : undefined }))
+  on('fs.list', () => ({ value: [] }))
+  on('store.get', (_, e) => ({
+    value:
+      e.key === 'lifetimeFiles'
+        ? { '/h/.claude/projects/p/s1.jsonl': { size: 10, mtimeMs: 1, t: { cacheRead: 0, cacheWrite: 0, input: 0, output: 0 }, firstId: 'm1', lastId: 'm1', lastAt: '2026-11-09T10:00:00.000Z' } }
+        : undefined,
+  }))
+  on('store.set', () => ({ value: undefined }))
+  on('clock.every', () => ({ value: undefined }))
+  on('clock.after', () => ({ value: undefined }))
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('prompt.fill', (_, e) => ({ isFilled: true, text: e.text, cursor: e.text.length }))
+  on('session.compact', (_, e) => ({ messages: e.messages }))
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  await $.session.measure({ context: { tokens: 60000, window: 200000, percent: 30 }, rateLimits: [], changed: ['context'] })
+}
+
+test('a resumed session is held when its transcript says the cache went cold', async ($, on) => {
+  await resumed($, on)
+  expect((await $.prompt.submit({ text: 'where were we', ...TYPED })).drop).toContain('cache expired')
+})
+
+test('a compaction stands in for the cold hold', async ($, on) => {
+  await resumed($, on)
+  await $.session.compact({ trigger: 'manual', messages: [{ role: 'user', text: 'summary', toolUses: [] }] })
+  expect((await $.prompt.submit({ text: 'carry on', ...TYPED })).text).toBe('carry on')
 })

@@ -17,6 +17,7 @@ const isExpanded = atom({ plugin: 'usage-hud', key: 'isExpanded' } as const, fal
 const isGuarded = atom({ plugin: 'usage-hud', key: 'isGuarded' } as const, true)
 const ttlMinutes = atom({ plugin: 'usage-hud', key: 'ttlMinutes' } as const, 0)
 const ttlSeen = atom({ plugin: 'usage-hud', key: 'ttlSeen' } as const, 0)
+const replyAt = atom({ plugin: 'usage-hud', key: 'replyAt' } as const, 0)
 const sessionId = atom({ plugin: 'usage-hud', key: 'sessionId' } as const, '')
 const theme = atom({ plugin: 'usage-hud', key: 'theme' } as const, 'ember')
 
@@ -35,7 +36,7 @@ type Theme = {
 
 const EMBER: Theme = {
   name: 'ember',
-  ink: '#0B0B0C',
+  ink: '#000000',
   edge: '#232327',
   off: '#26262A',
   accent: '#FF2E2E',
@@ -48,11 +49,11 @@ const EMBER: Theme = {
 
 const THEMES: Theme[] = [
   EMBER,
-  { name: 'ice', ink: '#0A0D12', edge: '#1E2633', off: '#1F2734', accent: '#3DA9FF', head: '#9AD8FF', deep: '#16405F', alarm: '#FF5A5A', text: '#EEF5FF', mute: '#6F7C8F' },
-  { name: 'mint', ink: '#0A0F0D', edge: '#1D2A24', off: '#1E2A25', accent: '#22D17C', head: '#93F2C4', deep: '#105234', alarm: '#FF5A5A', text: '#EFFBF5', mute: '#6E8279' },
-  { name: 'gold', ink: '#0F0D09', edge: '#2B2619', off: '#2A251A', accent: '#FFB21F', head: '#FFDD92', deep: '#614309', alarm: '#FF5A4A', text: '#FFF8EA', mute: '#857C68' },
-  { name: 'violet', ink: '#0D0B12', edge: '#262036', off: '#262036', accent: '#A273FF', head: '#D3BDFF', deep: '#3D2775', alarm: '#FF5A7A', text: '#F5F0FF', mute: '#7D768F' },
-  { name: 'mono', ink: '#0B0B0C', edge: '#2A2A2E', off: '#26262A', accent: '#D9D9DE', head: '#FFFFFF', deep: '#4A4A50', alarm: '#FF4D4D', text: '#F2F2F2', mute: '#77777D' },
+  { name: 'ice', ink: '#000000', edge: '#1E2633', off: '#1F2734', accent: '#3DA9FF', head: '#9AD8FF', deep: '#16405F', alarm: '#FF5A5A', text: '#EEF5FF', mute: '#6F7C8F' },
+  { name: 'mint', ink: '#000000', edge: '#1D2A24', off: '#1E2A25', accent: '#22D17C', head: '#93F2C4', deep: '#105234', alarm: '#FF5A5A', text: '#EFFBF5', mute: '#6E8279' },
+  { name: 'gold', ink: '#000000', edge: '#2B2619', off: '#2A251A', accent: '#FFB21F', head: '#FFDD92', deep: '#614309', alarm: '#FF5A4A', text: '#FFF8EA', mute: '#857C68' },
+  { name: 'violet', ink: '#000000', edge: '#262036', off: '#262036', accent: '#A273FF', head: '#D3BDFF', deep: '#3D2775', alarm: '#FF5A7A', text: '#F5F0FF', mute: '#7D768F' },
+  { name: 'mono', ink: '#000000', edge: '#2A2A2E', off: '#26262A', accent: '#D9D9DE', head: '#FFFFFF', deep: '#4A4A50', alarm: '#FF4D4D', text: '#F2F2F2', mute: '#77777D' },
 ]
 
 const themeOf = (name: string) => THEMES.find(x => x.name === name) ?? EMBER
@@ -106,13 +107,16 @@ const minus = (a: Totals, b: Totals): Totals => ({
 const asTallies = (v: unknown): Tallies => {
   const out: Tallies = {}
   if (typeof v !== 'object' || v === null) return out
-  for (const [path, f] of Object.entries(v as Record<string, { size?: unknown; mtimeMs?: unknown; t?: unknown; lastId?: unknown; lastAt?: unknown }>)) {
+  for (const [path, f] of Object.entries(v as Record<string, { size?: unknown; mtimeMs?: unknown; t?: unknown; dup?: unknown; firstId?: unknown; lastId?: unknown; lastAt?: unknown }>)) {
     const t = asTotals(f?.t)
     if (!t || typeof f.size !== 'number' || typeof f.mtimeMs !== 'number') continue
+    const dup = asTotals(f.dup)
     out[path] = {
       size: f.size,
       mtimeMs: f.mtimeMs,
       t,
+      ...(dup ? { dup } : {}),
+      ...(typeof f.firstId === 'string' ? { firstId: f.firstId } : {}),
       ...(typeof f.lastId === 'string' ? { lastId: f.lastId } : {}),
       ...(typeof f.lastAt === 'string' ? { lastAt: f.lastAt } : {}),
     }
@@ -120,14 +124,19 @@ const asTallies = (v: unknown): Tallies => {
   return out
 }
 
-const sumTallies = (all: Tallies) => Object.values(all).reduce((a, f) => plus(a, f.t), ZERO)
+const sumTallies = (all: Tallies) => Object.values(all).reduce((a, f) => plus(a, minus(f.t, f.dup ?? ZERO)), ZERO)
 
 const sumSession = (all: Tallies, id: string) =>
   id
     ? Object.entries(all)
         .filter(([path]) => path.endsWith(`/${id}.jsonl`) || path.includes(`/${id}/`))
-        .reduce((a, [, f]) => plus(a, f.t), ZERO)
+        .reduce((a, [, f]) => plus(a, minus(f.t, f.dup ?? ZERO)), ZERO)
     : ZERO
+
+const lastReplyAt = (all: Tallies, id: string) => {
+  const at = id ? Object.entries(all).find(([path]) => path.endsWith(`/${id}.jsonl`))?.[1].lastAt : undefined
+  return at ? Date.parse(at) || 0 : 0
+}
 
 type Reply = {
   type?: string
@@ -140,9 +149,20 @@ type Reply = {
   }
 }
 
-type Tally = { t: Totals; seen: Set<string>; lastId?: string; lastAt?: string; floor?: string; ttl: number }
+type Tally = { t: Totals; dup: Totals; seen: Map<string, number>; shared?: ReadonlySet<string>; firstId: string; lastId?: string; lastAt?: string; floor?: string; ttl: number }
 
-// A reply with several content blocks is written once per block, each line carrying the same usage.
+const tallyFrom = (was?: Tallies[string]): Tally => ({
+  t: { ...(was?.t ?? ZERO) },
+  dup: { ...(was?.dup ?? ZERO) },
+  seen: new Map(was?.lastId ? [[was.lastId, Infinity]] : []),
+  firstId: was?.firstId ?? '',
+  lastId: was?.lastId,
+  lastAt: was?.lastAt,
+  floor: was?.lastAt,
+  ttl: 0,
+})
+
+// A reply with several content blocks is written once per block; only the last line carries its final output count.
 // A rewind can write older replies again further down; in appended bytes those sit before `floor`.
 const tallyLines = (text: string, k: Tally) => {
   for (const line of text.split('\n')) {
@@ -154,16 +174,25 @@ const tallyLines = (text: string, k: Tally) => {
       continue
     }
     const m = o.message
-    if (o.type !== 'assistant' || !m?.usage || typeof m.id !== 'string' || k.seen.has(m.id)) continue
+    if (o.type !== 'assistant' || !m?.usage || typeof m.id !== 'string') continue
+    const output = m.usage.output_tokens ?? 0
+    const counted = k.seen.get(m.id)
+    if (counted !== undefined) {
+      if (output <= counted) continue
+      k.seen.set(m.id, output)
+      k.t.output += output - counted
+      if (k.shared?.has(m.id)) k.dup.output += output - counted
+      continue
+    }
     const at = o.timestamp ?? ''
     if (k.floor && at && at < k.floor) continue
-    k.seen.add(m.id)
+    k.seen.set(m.id, output)
+    k.firstId ||= m.id
     k.lastId = m.id
     if (at > (k.lastAt ?? '')) k.lastAt = at
-    k.t.cacheRead += m.usage.cache_read_input_tokens ?? 0
-    k.t.cacheWrite += m.usage.cache_creation_input_tokens ?? 0
-    k.t.input += m.usage.input_tokens ?? 0
-    k.t.output += m.usage.output_tokens ?? 0
+    const u = { cacheRead: m.usage.cache_read_input_tokens ?? 0, cacheWrite: m.usage.cache_creation_input_tokens ?? 0, input: m.usage.input_tokens ?? 0, output }
+    k.t = plus(k.t, u)
+    if (k.shared?.has(m.id)) k.dup = plus(k.dup, u)
     const made = m.usage.cache_creation
     if ((made?.ephemeral_1h_input_tokens ?? 0) > 0) k.ttl = 60
     else if ((made?.ephemeral_5m_input_tokens ?? 0) > 0) k.ttl = 5
@@ -212,19 +241,27 @@ const scan = async ($: EngineInterface) => {
     let fresh = 0
     for (const f of await transcripts($, `${base}/projects`)) {
       const was = kept[f.path]
-      if (was && was.size === f.size && was.mtimeMs === f.mtimeMs) continue
-      const grew = was && f.size > was.size ? was : undefined
+      const isCurrent = was?.firstId !== undefined
+      if (isCurrent && was.size === f.size && was.mtimeMs === f.mtimeMs) continue
+      const grew = isCurrent && f.size > was.size ? was : undefined
       const from = grew?.size ?? 0
-      const k: Tally = {
-        t: { ...(grew?.t ?? ZERO) },
-        seen: new Set(grew?.lastId ? [grew.lastId] : []),
-        lastId: grew?.lastId,
-        lastAt: grew?.lastAt,
-        floor: grew?.lastAt,
-        ttl: 0,
-      }
+      let k = tallyFrom(grew)
       try {
         await tallyRange($, f.path, from, f.size - from, k)
+        // A resumed or forked session starts its transcript with a copy of the one it came from.
+        // Only the copy subtracts what it shares; a rescanned original keeps counting it.
+        const isCopy = !isCurrent || Boolean(was.dup)
+        const twins = grew?.firstId || !k.firstId || !isCopy ? [] : Object.entries(kept).filter(([p, x]) => p !== f.path && x.firstId === k.firstId)
+        if (twins.length) {
+          const shared = new Set<string>()
+          for (const [p, x] of twins) {
+            const s = tallyFrom()
+            await tallyRange($, p, 0, x.size, s)
+            for (const id of s.seen.keys()) shared.add(id)
+          }
+          k = { ...tallyFrom(grew), shared }
+          await tallyRange($, f.path, from, f.size - from, k)
+        }
       } catch {
         continue
       }
@@ -232,6 +269,8 @@ const scan = async ($: EngineInterface) => {
         size: f.size,
         mtimeMs: f.mtimeMs,
         t: k.t,
+        ...(k.dup.cacheRead + k.dup.cacheWrite + k.dup.input + k.dup.output ? { dup: k.dup } : {}),
+        firstId: k.firstId,
         ...(k.lastId ? { lastId: k.lastId } : {}),
         ...(k.lastAt ? { lastAt: k.lastAt } : {}),
       }
@@ -244,6 +283,7 @@ const scan = async ($: EngineInterface) => {
     await update($, atScan, () => before)
     await update($, lifetime, () => sumTallies(kept))
     await update($, sessionBase, () => sumSession(kept, id))
+    await update($, replyAt, () => lastReplyAt(kept, id))
   } finally {
     isScanning = false
     scannedAt = Date.now()
@@ -272,7 +312,8 @@ const hhmm = (ms: number) => {
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 
-const BLINK = `<style>.hud-b{animation:hud-b 1s steps(2,start) infinite}@keyframes hud-b{to{opacity:.3}}@media (prefers-reduced-motion:reduce){.hud-b{animation:none}}</style>`
+const MOTION = `.hud-b{animation:hud-b 1s steps(2,start) infinite}.hud-p{animation:hud-p 2.6s ease-in-out infinite}@keyframes hud-b{to{opacity:.3}}@keyframes hud-p{50%{opacity:.45}}@media (prefers-reduced-motion:reduce){.hud-b,.hud-p,.hud-s{animation:none}}`
+const GLOW = `<filter id="hud-g" x="-20%" y="-400%" width="140%" height="900%"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="hud-rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient><linearGradient id="hud-shine"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
 
 type Tile = {
   label: string
@@ -285,32 +326,39 @@ type Tile = {
   isEmpty?: boolean
 }
 
-const tile = (th: Theme, { label, meta, value, unit, fill, marker, isAlarm, isEmpty }: Tile) => {
-  const x0 = 8
-  const bar = TILE_W - 16
-  const n = 20
-  const gap = 1.2
-  const w = (bar - gap * (n - 1)) / n
-  const lit = isEmpty ? 0 : Math.round(clamp01(fill) * n)
-  const lead = isAlarm ? th.alarm : th.accent
-  const segs = Array.from({ length: n }, (_, i) => {
+const meter = (th: Theme, x: number, y: number, width: number, n: number, gap: number, fill: number, lead: string, marker?: number) => {
+  const w = (width - gap * (n - 1)) / n
+  const lit = Math.round(clamp01(fill) * n)
+  const seg = (i: number) => {
     const color = i >= lit ? th.off : i === lit - 1 ? th.head : lead
-    return `<rect x="${(x0 + i * (w + gap)).toFixed(2)}" y="32" width="${w.toFixed(2)}" height="3" rx=".6" fill="${color}"/>`
-  }).join('')
-  const tick =
-    marker === undefined || isEmpty
-      ? ''
-      : `<rect x="${(x0 + clamp01(marker) * bar - 0.6).toFixed(2)}" y="30" width="1.2" height="7" fill="${th.text}"/>`
-  const ink = isEmpty ? th.mute : isAlarm ? th.alarm : th.text
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TILE_W} ${TILE_H}" width="${TILE_W}" height="${TILE_H}">${BLINK}<g font-family="${MONO}" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${TILE_W - 1}" height="${TILE_H - 1}" rx="7" fill="${th.ink}" stroke="${isAlarm ? th.alarm : th.edge}" stroke-opacity="${isAlarm ? 0.55 : 1}"/><rect class="${isAlarm ? 'hud-b' : ''}" x="8" y="7.5" width="3" height="3" fill="${isEmpty ? th.off : lead}"/><text x="15" y="11" font-size="7.5" letter-spacing="1.3" fill="${th.mute}">${label}</text><text x="${TILE_W - 8}" y="11" font-size="7.5" text-anchor="end" fill="${th.mute}">${meta}</text><text class="${isAlarm ? 'hud-b' : ''}" x="8" y="26" font-size="14" font-weight="600" fill="${ink}">${value}${unit ? `<tspan font-size="8" fill="${th.mute}" dx="1">${unit}</tspan>` : ''}</text>${segs}${tick}</g></svg>`
+    return `<rect${i === lit - 1 ? ' class="hud-p"' : ''} x="${(x + i * (w + gap)).toFixed(2)}" y="${y}" width="${w.toFixed(2)}" height="3" rx=".6" fill="${color}"/>`
+  }
+  const all = Array.from({ length: n }, (_, i) => seg(i))
+  const segs = `${all.slice(lit).join('')}<g filter="url(#hud-g)">${all.slice(0, lit).join('')}</g>`
+  const tick = marker === undefined ? '' : `<rect x="${(x + clamp01(marker) * width - 0.6).toFixed(2)}" y="${y - 2}" width="1.2" height="7" fill="${th.text}"/>`
+  return segs + tick
 }
 
-type Readout = { key: string; value: string; note?: string; isAlarm?: boolean }
+const frame = (th: Theme, width: number, height: number, body: string) => {
+  const id = `${th.name}-${width}-${height}`
+  const box = `x=".5" y=".5" width="${width - 1}" height="${height - 1}" rx="7"`
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><defs>${GLOW}<radialGradient id="hud-a-${id}" gradientUnits="userSpaceOnUse" cx="0" cy="${height}" r="${Math.min(width * 0.45, 220)}"><stop offset="0" stop-color="${th.accent}" stop-opacity=".2"/><stop offset="1" stop-color="${th.accent}" stop-opacity="0"/></radialGradient><clipPath id="hud-c-${id}"><rect ${box}/></clipPath><style>${MOTION}.hud-s{animation:hud-s-${id} 9s ease-in-out infinite}@keyframes hud-s-${id}{0%,70%{transform:translateX(-90px)}100%{transform:translateX(${width}px)}}</style></defs><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect ${box} fill="${th.ink}" stroke="${th.edge}"/><g clip-path="url(#hud-c-${id})"><rect width="${width}" height="${height}" fill="url(#hud-a-${id})"/><rect class="hud-s" width="90" height="${height}" fill="url(#hud-shine)" transform="translate(-90 0)"/></g><rect ${box} fill="none" stroke="url(#hud-rim)"/>${body}</g></svg>`
+}
+
+const cell = (th: Theme, w: number, { label, meta, value, unit, fill, marker, isAlarm, isEmpty }: Tile) => {
+  const lead = isAlarm ? th.alarm : th.accent
+  const bar = meter(th, 10, 32, w - 20, 20, 1.2, isEmpty ? 0 : fill, lead, isEmpty ? undefined : marker)
+  const ink = isEmpty ? th.mute : isAlarm ? th.alarm : th.text
+  return `<rect class="${isAlarm ? 'hud-b' : ''}" x="10" y="7.5" width="3" height="3" fill="${isEmpty ? th.off : lead}"/><text x="17" y="11" font-size="7.5" letter-spacing="1.3" fill="${th.mute}">${label}</text><text x="${w - 10}" y="11" font-size="7.5" text-anchor="end" fill="${th.mute}">${meta}</text><text class="${isAlarm ? 'hud-b' : ''}" x="10" y="26" font-size="14" font-weight="600" fill="${ink}">${value}${unit ? `<tspan font-size="8" fill="${th.mute}" dx="1">${unit}</tspan>` : ''}</text>${bar}`
+}
+
+type Readout = { key: string; value: string; note?: string; isAlarm?: boolean; fill?: number; marker?: number }
 
 const strip = (th: Theme, items: Readout[]) => {
   const ch = 5.5
   const pad = 10
   const sep = 16
+  const mini = 24
   let x = pad
   const parts = items.map((r, i) => {
     const out: string[] = []
@@ -321,6 +369,11 @@ const strip = (th: Theme, items: Readout[]) => {
     x += (r.key.length + 1) * ch
     out.push(`<text x="${x.toFixed(1)}" y="15.5" fill="${r.isAlarm ? th.alarm : th.text}">${r.value}</text>`)
     x += r.value.length * ch
+    if (r.fill !== undefined) {
+      x += ch
+      out.push(meter(th, x, 10.5, mini, 8, 1, r.fill, r.isAlarm ? th.alarm : th.accent, r.marker))
+      x += mini
+    }
     if (r.note) {
       x += ch
       out.push(`<text x="${x.toFixed(1)}" y="15.5" fill="${th.mute}">${r.note}</text>`)
@@ -329,11 +382,7 @@ const strip = (th: Theme, items: Readout[]) => {
     x += sep
     return out.join('')
   })
-  const width = Math.ceil(x - sep + pad)
-  return {
-    width,
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 24" width="${width}" height="24"><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${width - 1}" height="23" rx="7" fill="${th.ink}" stroke="${th.edge}"/>${parts.join('')}</g></svg>`,
-  }
+  return { width: Math.ceil(x - sep + pad), body: parts.join('') }
 }
 
 type Part = { key: string; label: string; n: number; color: string; note: string }
@@ -368,8 +417,20 @@ const stackBar = (th: Theme, label: string, value: string, parts: Part[], scale:
   const width = Math.ceil(x)
   return {
     width,
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 24" width="${width}" height="24"><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect x=".5" y=".5" width="${width - 1}" height="23" rx="7" fill="${th.ink}" stroke="${th.edge}"/><rect x="10" y="10.5" width="3" height="3" fill="${th.accent}"/><text x="${10 + 1.5 * ch}" y="15.5" fill="${th.mute}" letter-spacing="1.2">${label}</text><text x="${totalX.toFixed(1)}" y="15.5" fill="${th.text}" font-weight="600">${value}</text>${segs}${legend}</g></svg>`,
+    body: `<rect x="10" y="10.5" width="3" height="3" fill="${th.accent}"/><text x="${10 + 1.5 * ch}" y="15.5" fill="${th.mute}" letter-spacing="1.2">${label}</text><text x="${totalX.toFixed(1)}" y="15.5" fill="${th.text}" font-weight="600">${value}</text>${segs}${legend}`,
   }
+}
+
+const ROW_H = 20
+
+const panel = (th: Theme, tiles: Tile[], rows: { width: number; body: string }[]) => {
+  const width = Math.max(tiles.length * TILE_W, ...rows.map(r => r.width))
+  const w = width / tiles.length
+  const cells = tiles.map((x, i) => `${i ? `<rect x="${w * i}" y="8" width="1" height="${TILE_H - 14}" fill="${th.edge}"/>` : ''}<g transform="translate(${w * i} 0)">${cell(th, w, x)}</g>`)
+  const lines = rows.map((r, i) => `<g transform="translate(0 ${TILE_H + 4 + i * ROW_H})">${r.body}</g>`)
+  const height = TILE_H + (rows.length ? 10 + rows.length * ROW_H : 0)
+  const rule = rows.length ? `<rect x="10" y="${TILE_H + 3}" width="${width - 20}" height="1" fill="${th.edge}"/>` : ''
+  return { width, height, source: frame(th, width, height, cells.join('') + rule + lines.join('')) }
 }
 
 const tokenBar = (th: Theme, t: Totals, label: string, name: string) => {
@@ -427,8 +488,11 @@ const pace = (l: Limit, t: number) => {
   const ratio = l.percentUsed / 100 / (elapsed / total)
   const rate = l.percentUsed / elapsed
   const out = rate > 0 ? t + (100 - l.percentUsed) / rate : Infinity
-  return { ratio, out, reset, isShort: out < reset }
+  return { ratio, out, reset, isShort: elapsed >= total / 10 && out < reset }
 }
+
+const current = (l: Limit | undefined, t: number): Limit | undefined =>
+  l?.resetsAt && Date.parse(l.resetsAt) <= t ? { kind: l.kind, percentUsed: 0 } : l
 
 const refresh = async ($: EngineInterface) => {
   const u = await $.session.usage()
@@ -482,18 +546,20 @@ type Risk = { key: string; text: string }
 
 const OUT = 'Press Enter to send it anyway, or compact first. /hud guard off turns this off.'
 
+const coldFrom = async ($: EngineInterface) => (await read($, lastCall))?.at || (await read($, replyAt))
+
 const riskOf = async ($: EngineInterface, acked: number): Promise<{ risk: Risk | null; band: number }> => {
-  const call = await read($, lastCall)
+  const at = await coldFrom($)
   const { tokens, pct } = contextOf(await read($, snapshot))
   const band = BANDS.find(b => pct >= b) ?? 0
   const t = Date.now()
   const ttl = await ttlMsOf($)
-  if (call && t > call.at + ttl && tokens >= COLD_MIN) {
+  if (at && t > at + ttl && tokens >= COLD_MIN) {
     return {
       band,
       risk: {
-        key: `cold:${call.at}`,
-        text: `Held: the prompt cache expired ${span(t - call.at - ttl)} ago, so this message would write all ${compact(tokens)} tokens of context to the cache again. ${OUT}`,
+        key: `cold:${at}`,
+        text: `Held: the prompt cache expired ${span(t - at - ttl)} ago, so this message would write all ${compact(tokens)} tokens of context to the cache again. ${OUT}`,
       },
     }
   }
@@ -513,8 +579,8 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'hud',
-      description: 'Toggle the usage HUD; /hud guard, /hud theme and /hud ttl change it',
-      argumentHint: '[guard on|off | theme <name> | ttl 5|60|auto]',
+      description: 'Toggle the usage HUD; /hud status prints it; /hud guard, /hud theme and /hud ttl change it',
+      argumentHint: '[status | guard on|off | theme <name> | ttl 5|60|auto]',
     })
     const id = await $.session.id().catch(() => '')
     await update($, sessionId, () => id)
@@ -523,6 +589,7 @@ export const register: Register = on => {
     const sum = await read($, totals)
     await update($, lifetime, () => sumTallies(kept))
     await update($, sessionBase, () => sumSession(kept, id))
+    await update($, replyAt, () => lastReplyAt(kept, id))
     await update($, atScan, () => sum)
     void scan($).catch(() => undefined)
     $.clock.every(60e3, () => scan($).catch(() => undefined))
@@ -549,6 +616,7 @@ export const register: Register = on => {
 
   on('turn.step', async function* ($, e, next) {
     const sentAt = Date.now()
+    if (e.agentId === undefined) await update($, lastCall, c => (c ? { ...c, at: sentAt } : c))
     const r = yield* next(e)
     if (!r.usage) return r
     const u = r.usage
@@ -587,6 +655,16 @@ export const register: Register = on => {
     return next(e)
   })
 
+  on('session.compact', async ($, e, next) => {
+    const r = await next(e)
+    if (e.agentId === undefined && e.trigger !== 'precompute' && !r.skip) {
+      const key = `cold:${await coldFrom($)}`
+      await update($, held, x => ({ ...x, key, at: Date.now(), isPassed: true }))
+    }
+
+    return r
+  })
+
   on('session.measure', async ($, e, next) => {
     await update($, snapshot, () => toSnapshot(e))
 
@@ -594,7 +672,7 @@ export const register: Register = on => {
   })
 
   on('prompt.submit', async ($, e, next) => {
-    if (e.command || e.isMeta || e.attachments?.length || !GUARDED.has(e.origin.kind) || !(await read($, isGuarded))) return next(e)
+    if (e.command || e.isMeta || e.turnId || e.attachments?.length || !GUARDED.has(e.origin.kind) || !(await read($, isGuarded))) return next(e)
     const h = await read($, held)
     const { risk, band } = await riskOf($, h.band)
     if (!risk) {
@@ -639,7 +717,27 @@ export const register: Register = on => {
       await setTheme($, picked.name)
       return { text: `Usage HUD theme: ${picked.name}.` }
     }
-    if (word) return { text: 'Usage HUD: /hud shows or hides it; /hud guard on|off, /hud theme <name> and /hud ttl 5|60|auto change it.' }
+    if (word === 'status') {
+      const snap = await read($, snapshot)
+      const at = await coldFrom($)
+      const t = Date.now()
+      const limit = (name: string, kind: Limit['kind']) => {
+        const l = current(snap?.limits.find(x => x.kind === kind), t)
+        if (!l) return `${name}: —`
+        const left = Math.round(Math.max(0, 100 - l.percentUsed))
+        return `${name}: ${left}% left${l.resetsAt ? `, resets in ${span(Date.parse(l.resetsAt) - t)}` : ''}`
+      }
+      const cacheLeft = at ? at + (await ttlMsOf($)) - t : 0
+      return {
+        text: [
+          limit('5h', 'five_hour'),
+          limit('Week', 'seven_day'),
+          `Cache: ${at ? (cacheLeft > 0 ? `warm for ${countdown(cacheLeft)}` : 'cold') : '—'}`,
+          `Context: ${Math.round(contextOf(snap).pct)}%`,
+        ].join('\n'),
+      }
+    }
+    if (word) return { text: 'Usage HUD: /hud shows or hides it; /hud status prints the gauges as text; /hud guard on|off, /hud theme <name> and /hud ttl 5|60|auto change it.' }
     const hidden = await update($, isHidden, h => !h)
     return { text: hidden ? 'Usage HUD hidden. /hud brings it back.' : 'Usage HUD shown.' }
   })
@@ -648,12 +746,14 @@ export const register: Register = on => {
     const below = await next(e)
     if (e.props.hasSurvey) return below
     if (await read($, isHidden)) {
-      const { Box, Button } = $.ui.resolve(e)
+      const { Box, Button, Text } = $.ui.resolve(e)
       return (
         <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
           {below}
           <Button key="show" plain dimColor onPress={() => update($, isHidden, () => false)}>
-            usage ▸
+            <Text size="caption" mono dimColor>
+              usage
+            </Text>
           </Button>
         </Box>
       )
@@ -672,8 +772,8 @@ export const register: Register = on => {
     const isOn = await read($, isGuarded)
 
     const limits = snap?.limits ?? []
-    const five = limits.find(l => l.kind === 'five_hour')
-    const week = limits.find(l => l.kind === 'seven_day')
+    const five = current(limits.find(l => l.kind === 'five_hour'), t)
+    const week = current(limits.find(l => l.kind === 'seven_day'), t)
     const cacheLeft = call ? call.at + ttlMs - t : 0
     const isWarm = cacheLeft > 0
     const isCooling = isWarm && cacheLeft < 120e3
@@ -683,6 +783,13 @@ export const register: Register = on => {
     const ctx = contextOf(snap)
     const ctxPct = Math.round(ctx.pct)
     const isCtxHigh = ctxPct >= 80
+    const cacheValue = call ? (isWarm ? countdown(cacheLeft) : 'COLD') : '—'
+
+    const watch = (l: Limit | undefined) => {
+      const left = l ? Math.max(0, 100 - l.percentUsed) : 0
+      const isAlarm = Boolean(l && (left <= 15 || pace(l, t)?.isShort))
+      return { left, isAlarm, isHot: isAlarm || Boolean(l && left <= 30) }
+    }
 
     if (e.surface === 'terminal') {
       const { Box, Text } = $.ui.resolve(e)
@@ -691,13 +798,13 @@ export const register: Register = on => {
         return '▰'.repeat(lit) + '▱'.repeat(8 - lit)
       }
       const lim = (name: string, l: Limit | undefined) => {
-        const rest = l ? 100 - l.percentUsed : 0
+        const w = watch(l)
         return (
           <Text>
             <Text dimColor>{name} </Text>
-            <Text color={l ? (rest <= 15 ? th.alarm : th.accent) : 'subtle'}>{bar(rest)}</Text>
-            <Text bold={rest <= 15}> {l ? `${Math.round(rest)}%` : '—'}</Text>
-            {l?.resetsAt ? <Text dimColor> {span(Date.parse(l.resetsAt) - t)}</Text> : null}
+            {w.isHot ? <Text color={w.isAlarm ? th.alarm : th.accent}>{bar(w.left)} </Text> : null}
+            <Text color={w.isAlarm ? th.alarm : undefined} bold={w.isAlarm}>{l ? `${Math.round(w.left)}%` : '—'}</Text>
+            {w.isHot && l?.resetsAt ? <Text dimColor> {span(Date.parse(l.resetsAt) - t)}</Text> : null}
           </Text>
         )
       }
@@ -707,68 +814,62 @@ export const register: Register = on => {
             {lim('5h', five)}
             {lim('wk', week)}
             <Text>
-              <Text dimColor>cache </Text>
+              <Text dimColor>{isOn ? 'cache ◆ ' : 'cache '}</Text>
               <Text color={isCooling ? th.alarm : undefined} bold={isCooling}>
-                {call ? (isWarm ? countdown(cacheLeft) : 'cold') : '—'}
+                {cacheValue.toLowerCase()}
               </Text>
-            </Text>
-            <Text>
-              <Text dimColor>read </Text>
-              <Text>{call ? compact(call.cacheRead) : '—'}</Text>
             </Text>
             <Text>
               <Text dimColor>ctx </Text>
               <Text color={isCtxHigh ? th.alarm : undefined}>{ctxPct}%</Text>
             </Text>
-            {isOn ? <Text dimColor>guard</Text> : null}
           </Box>
           {below}
         </Box>
       )
     }
 
-    const { Box, Button, Svg } = $.ui.resolve(e)
+    const { Box, Button, Svg, Text } = $.ui.resolve(e)
 
-    const limitTile = (label: string, name: string, l: Limit | undefined) => {
+    type Gauge = { tile: Tile; alt: string; chip: Readout }
+
+    const limitGauge = (label: string, key: string, name: string, l: Limit | undefined): Gauge => {
       if (!l) {
-        return { source: tile(th, { label, meta: '', value: '—', fill: 0, isEmpty: true }), alt: `${name}: no reading yet` }
+        return { tile: { label, meta: '', value: '—', fill: 0, isEmpty: true }, alt: `${name}: no reading yet`, chip: { key, value: '—' } }
       }
-      const left = Math.max(0, 100 - l.percentUsed)
+      const w = watch(l)
       const total = WINDOW_MS[l.kind]
       const reset = l.resetsAt ? Date.parse(l.resetsAt) : undefined
-      const p = pace(l, t)
+      const meta = reset ? short(reset - t) : ''
+      const marker = reset && total ? (reset - t) / total : undefined
+      const value = `${Math.round(w.left)}`
       return {
-        source: tile(th, {
-          label,
-          meta: reset ? short(reset - t) : '',
-          value: `${Math.round(left)}`,
-          unit: '%',
-          fill: left / 100,
-          marker: reset && total ? (reset - t) / total : undefined,
-          isAlarm: left <= 15 || Boolean(p?.isShort),
-        }),
-        alt: `${name}: ${Math.round(left)}% left${reset ? `, resets in ${span(reset - t)}` : ''}`,
+        tile: { label, meta, value, unit: '%', fill: w.left / 100, marker, isAlarm: w.isAlarm },
+        alt: `${name}: ${value}% left${reset ? `, resets in ${span(reset - t)}` : ''}`,
+        chip: { key, value: `${value}%`, fill: w.left / 100, marker, note: meta, isAlarm: w.isAlarm },
       }
     }
 
-    const tiles = [
-      limitTile('5H', '5-hour limit', five),
-      limitTile('WEEK', 'Weekly limit', week),
+    const cacheLabel = isOn ? 'CACHE ◆' : 'CACHE'
+    const gauges: Gauge[] = [
+      limitGauge('5H', '5H', '5-hour limit', five),
+      limitGauge('WEEK', 'WK', 'Weekly limit', week),
       {
-        source: tile(th, {
-          label: isOn ? 'CACHE ◆' : 'CACHE',
+        tile: {
+          label: cacheLabel,
           meta: call ? compact(call.cacheRead) : `${ttlMs / 60000}M`,
-          value: call ? (isWarm ? countdown(cacheLeft) : 'COLD') : '—',
+          value: cacheValue,
           fill: isWarm ? cacheLeft / ttlMs : 0,
           isAlarm: isCooling,
           isEmpty: !isWarm,
-        }),
+        },
         alt: call
           ? `Cache ${isWarm ? `warm for ${countdown(cacheLeft)}` : 'cold'}, last read ${compact(call.cacheRead)} tokens${isOn ? ', guard on' : ''}`
           : 'Cache: no reply yet',
+        chip: { key: cacheLabel, value: cacheValue, fill: isWarm ? cacheLeft / ttlMs : undefined, isAlarm: isCooling },
       },
       {
-        source: tile(th, {
+        tile: {
           label: 'CTX',
           meta: compact(ctx.tokens),
           value: `${ctxPct}`,
@@ -776,8 +877,9 @@ export const register: Register = on => {
           fill: ctx.pct / 100,
           isAlarm: isCtxHigh,
           isEmpty: !snap,
-        }),
+        },
         alt: `Context ${ctxPct}% used, ${compact(ctx.tokens)} of ${compact(snap?.contextWindow ?? 0)} tokens`,
+        chip: snap ? { key: 'CTX', value: `${ctxPct}%`, fill: ctx.pct / 100, isAlarm: isCtxHigh } : { key: 'CTX', value: '—' },
       },
     ]
 
@@ -792,17 +894,13 @@ export const register: Register = on => {
       }
     }
 
-    const details = strip(
-      th,
-      [
-        readout('5H', five),
-        readout('WK', week),
-        { key: 'Σ CACHE', value: compact(session.cacheRead), note: `${Math.round(sumHit * 100)}%` },
-        call ? { key: 'HIT', value: `${Math.round(hit * 100)}%` } : null,
-        snap ? { key: 'CTX', value: `${compact(ctx.tokens)}/${compact(snap.contextWindow)}` } : null,
-        snap?.usd === undefined ? null : { key: 'COST', value: `$${snap.usd.toFixed(2)}` },
-      ].filter((r): r is Readout => r !== null),
-    )
+    const facts = [
+      readout('5H', five),
+      readout('WK', week),
+      sumPrompt ? { key: 'HIT', value: `${Math.round(sumHit * 100)}%`, note: call ? `LAST ${Math.round(hit * 100)}%` : undefined } : null,
+      snap?.usd === undefined ? null : { key: 'COST', value: `$${snap.usd.toFixed(2)}` },
+    ].filter((r): r is Readout => r !== null)
+    const details = facts.length ? { ...strip(th, facts), alt: facts.map(f => [f.key, f.value, f.note].filter(Boolean).join(' ')).join(', ') } : null
 
     const tokens = tokenBar(th, session, 'SESSION', 'Session')
     const allTokens = tokenBar(th, plus(await read($, lifetime), fromScan), 'LIFETIME', 'Lifetime')
@@ -814,48 +912,38 @@ export const register: Register = on => {
       if (isOpen) void refreshContext($).catch(() => undefined)
     }
 
+    const rows = [tokens, allTokens, window, details].filter(r => r !== null)
+    const ttlNow = ttlMin === 5 ? '5m' : ttlMin === 60 ? '1h' : 'auto'
+    const dock = strip(th, gauges.map(g => g.chip))
+    const open = expanded ? panel(th, gauges.map(g => g.tile), rows) : null
+    const alt = [...gauges, ...(open ? rows : [])].map(x => x.alt).join('; ')
+    const control = (key: string, label: string, onPress: () => unknown) => (
+      <Button key={key} plain dimColor onPress={onPress}>
+        <Text size="caption" mono dimColor>
+          {label}
+        </Text>
+      </Button>
+    )
+
     return (
-      <Box flexDirection="column" gap={1}>
-        <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
-          {below}
-          {tiles.map(x => (
-            <Svg source={x.source} alt={x.alt} width={TILE_W} height={TILE_H} />
-          ))}
-          <Button key="more" plain dimColor onPress={onMore}>
-            {expanded ? '×' : '⋯'}
-          </Button>
-        </Box>
-        {expanded ? <Svg source={tokens.source} alt={tokens.alt} width={tokens.width} height={24} /> : null}
-        {expanded ? <Svg source={allTokens.source} alt={allTokens.alt} width={allTokens.width} height={24} /> : null}
-        {expanded && window ? <Svg source={window.source} alt={window.alt} width={window.width} height={24} /> : null}
-        {expanded ? (
-          <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
-            <Svg source={details.source} alt="Pace and session cache details" width={details.width} height={24} />
-            <Button key="ttl5" variant={ttlMin === 5 ? 'primary' : 'secondary'} onPress={() => setTtl($, 5)}>
-              5m
-            </Button>
-            <Button key="ttl60" variant={ttlMin === 60 ? 'primary' : 'secondary'} onPress={() => setTtl($, 60)}>
-              1h
-            </Button>
-            <Button key="ttlAuto" variant={ttlMin === 0 ? 'primary' : 'secondary'} onPress={() => setTtl($, 0)}>
-              auto
-            </Button>
-            <Button key="guard" variant={isOn ? 'primary' : 'secondary'} onPress={() => setGuard($, !isOn)}>
-              {isOn ? 'guard on' : 'guard off'}
-            </Button>
-            {ctxPct >= 50 ? (
-              <Button key="compact" variant="primary" onPress={() => void $.session.compact()}>
-                Compact
-              </Button>
-            ) : null}
-            <Button key="theme" plain dimColor onPress={() => setTheme($, nextTheme(th.name).name)}>
-              {`${th.name} ▸`}
-            </Button>
-            <Button key="hide" plain dimColor onPress={() => update($, isHidden, () => true)}>
-              hide
-            </Button>
+      <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
+        {below}
+        <Box flexDirection="column" gap="xs">
+          <Box flexDirection="row" alignItems="center" gap={1}>
+            {open ? <Svg source={open.source} alt={alt} width={open.width} height={open.height} /> : <Svg source={frame(th, dock.width, 24, dock.body)} alt={alt} width={dock.width} height={24} />}
+            {open ? null : control('more', '⋯', onMore)}
           </Box>
-        ) : null}
+          {open ? (
+            <Box flexDirection="row" alignItems="center" gap={2}>
+              {control('ttl', `ttl ${ttlNow}`, () => setTtl($, ttlMin === 0 ? 5 : ttlMin === 5 ? 60 : 0))}
+              {control('guard', isOn ? 'guard on' : 'guard off', () => setGuard($, !isOn))}
+              {ctxPct >= 50 ? control('compact', 'compact', () => void $.session.compact()) : null}
+              {control('theme', th.name, () => setTheme($, nextTheme(th.name).name))}
+              {control('hide', 'hide', () => update($, isHidden, () => true))}
+              {control('more', 'close ×', onMore)}
+            </Box>
+          ) : null}
+        </Box>
       </Box>
     )
   }).catch(async ($, e, next) => {
