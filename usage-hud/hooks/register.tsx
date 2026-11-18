@@ -149,7 +149,7 @@ type Reply = {
   }
 }
 
-type Tally = { t: Totals; dup: Totals; seen: Map<string, number>; shared?: ReadonlySet<string>; firstId: string; lastId?: string; lastAt?: string; floor?: string; ttl: number }
+type Tally = { t: Totals; dup: Totals; seen: Map<string, number>; each?: Map<string, Totals>; firstId: string; lastId?: string; lastAt?: string; floor?: string; ttl: number }
 
 const tallyFrom = (was?: Tallies[string]): Tally => ({
   t: { ...(was?.t ?? ZERO) },
@@ -181,7 +181,8 @@ const tallyLines = (text: string, k: Tally) => {
       if (output <= counted) continue
       k.seen.set(m.id, output)
       k.t.output += output - counted
-      if (k.shared?.has(m.id)) k.dup.output += output - counted
+      const u = k.each?.get(m.id)
+      if (u) u.output = output
       continue
     }
     const at = o.timestamp ?? ''
@@ -192,7 +193,7 @@ const tallyLines = (text: string, k: Tally) => {
     if (at > (k.lastAt ?? '')) k.lastAt = at
     const u = { cacheRead: m.usage.cache_read_input_tokens ?? 0, cacheWrite: m.usage.cache_creation_input_tokens ?? 0, input: m.usage.input_tokens ?? 0, output }
     k.t = plus(k.t, u)
-    if (k.shared?.has(m.id)) k.dup = plus(k.dup, u)
+    k.each?.set(m.id, u)
     const made = m.usage.cache_creation
     if ((made?.ephemeral_1h_input_tokens ?? 0) > 0) k.ttl = 60
     else if ((made?.ephemeral_5m_input_tokens ?? 0) > 0) k.ttl = 5
@@ -245,7 +246,8 @@ const scan = async ($: EngineInterface) => {
       if (isCurrent && was.size === f.size && was.mtimeMs === f.mtimeMs) continue
       const grew = isCurrent && f.size > was.size ? was : undefined
       const from = grew?.size ?? 0
-      let k = tallyFrom(grew)
+      const k = tallyFrom(grew)
+      if (!grew) k.each = new Map()
       try {
         await tallyRange($, f.path, from, f.size - from, k)
         // A resumed or forked session starts its transcript with a copy of the one it came from.
@@ -259,8 +261,7 @@ const scan = async ($: EngineInterface) => {
             await tallyRange($, p, 0, x.size, s)
             for (const id of s.seen.keys()) shared.add(id)
           }
-          k = { ...tallyFrom(grew), shared }
-          await tallyRange($, f.path, from, f.size - from, k)
+          for (const [id, u] of k.each ?? []) if (shared.has(id)) k.dup = plus(k.dup, u)
         }
       } catch {
         continue

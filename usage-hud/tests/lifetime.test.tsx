@@ -140,7 +140,7 @@ test('a resumed transcript counts its copied replies once in lifetime, and a rep
   const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
   await ui.press({ key: 'more' })
   const tree = JSON.stringify(await ui.find({ type: 'Box' }))
-  expect(ranges).toEqual(['1+400', '1+300', '1+400'])
+  expect(ranges).toEqual(['1+400', '1+300'])
   expect(tree).toContain('Session tokens 5.2k')
   expect(tree).toContain('Lifetime tokens 7.5k')
   await ui.unmount()
