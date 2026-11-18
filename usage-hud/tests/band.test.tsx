@@ -84,7 +84,9 @@ test('a press on the drawing opens and closes the card, and the strip keeps its 
   const dock = await ui.find({ type: 'Svg' })
   expect(dock?.props.height).toBe(24)
   expect(String(dock?.props.source)).toMatch(/hud-s-\S+ 6s ease-in-out -\d+(\.\d+)?s infinite/)
+  expect(String(dock?.props.source)).toContain('url(#hud-r)')
   expect(String(dock?.props.source)).not.toContain('url(#hud-g)')
+  expect(String(dock?.props.source)).not.toContain('<path d="M')
   expect(await ui.find({ type: 'Button', text: '⋯' })).toBeFalsy()
 
   await ui.press({ key: 'more' })
