@@ -89,7 +89,20 @@ test('/hud theme recolours the band and names the themes', async ($, on) => {
   expect(text).toBe('Usage HUD themes: ember, ice, mint, gold, violet, mono.')
 })
 
-test('the guard lets a prompt typed over a running turn through', async ($, on) => {
+test('/hud status prints the gauges as text', async ($, on) => {
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  const reset = new Date(Date.now() + 2 * 3600e3 + 30e3).toISOString()
+  await $.session.measure({
+    context: { tokens: 84000, window: 200000, percent: 42 },
+    rateLimits: [{ kind: 'five_hour', percentUsed: 30, resetsAt: reset }],
+    changed: ['context', 'rateLimits'],
+  })
+
+  const { text } = await $.command.run({ command: 'hud', args: 'status', ...RUN })
+  expect(text).toBe('5h: 70% left, resets in 2h 0m\nWeek: —\nCache: —\nContext: 42%')
+})
+
+test('the guard lets a prompt typed over a running turn through',async ($, on) => {
   on('session.measure', (_, e) => ({ changed: e.changed }))
   on('prompt.submit', (_, e) => ({ text: e.text }))
   on('prompt.fill', (_, e) => ({ isFilled: true, text: e.text, cursor: e.text.length }))

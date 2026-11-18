@@ -41,6 +41,7 @@ Answer `y` to add the marketplace, then pick the user scope so the mods load in 
 ## Commands
 
 - `/hud` hides or shows the gauges.
+- `/hud status` prints the limits, cache and context as text, for a phone or anywhere the band isn't drawn.
 - `/hud guard on` or `/hud guard off` turns the cache guard on or off. It starts on.
 - `/hud theme` cycles the colours: ember, ice, mint, gold, violet, mono. `/hud theme ice` picks one.
 - `/hud ttl 5` or `/hud ttl 60` fixes the cache countdown; `/hud ttl auto`, the default, follows the session.
