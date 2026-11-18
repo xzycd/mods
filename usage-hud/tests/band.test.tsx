@@ -67,3 +67,36 @@ test('calm gauges fold into one strip; an early burst or a passed reset raises n
   expect(open).not.toContain('DRY')
   await ui.unmount()
 })
+
+test('a press on the drawing opens and closes the card, and the strip keeps its sheen on the clock', async ($, on) => {
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box />
+  })
+  await $.session.measure({
+    context: { tokens: 48000, window: 200000, percent: 24 },
+    rateLimits: [{ kind: 'five_hour', percentUsed: 8, resetsAt: new Date(Date.now() + 169 * 60e3).toISOString() }],
+    changed: ['context', 'rateLimits'],
+  })
+
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  const dock = await ui.find({ type: 'Svg' })
+  expect(dock?.props.height).toBe(24)
+  expect(String(dock?.props.source)).toMatch(/hud-s-\S+ 6s ease-in-out -\d+(\.\d+)?s infinite/)
+  expect(String(dock?.props.source)).not.toContain('url(#hud-g)')
+  expect(await ui.find({ type: 'Button', text: '⋯' })).toBeFalsy()
+
+  await ui.press({ key: 'more' })
+  const card = await ui.find({ type: 'Svg' })
+  expect(Number(card?.props.height)).toBeGreaterThan(24)
+  expect(String(card?.props.source)).toContain('% left')
+  expect(String(card?.props.source)).toContain('% used')
+  expect(String(card?.props.alt)).toContain('even pace would leave')
+  expect(await ui.find({ type: 'Button', key: 'more-1' })).toBeTruthy()
+  expect(await ui.find({ type: 'Button', text: 'close ×' })).toBeFalsy()
+
+  await ui.press({ key: 'more' })
+  expect((await ui.find({ type: 'Svg' }))?.props.height).toBe(24)
+  await ui.unmount()
+})

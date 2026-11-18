@@ -313,7 +313,12 @@ const hhmm = (ms: number) => {
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 
-const MOTION = `.hud-b{animation:hud-b 1s steps(2,start) infinite}.hud-p{animation:hud-p 2.6s ease-in-out infinite}@keyframes hud-b{to{opacity:.3}}@keyframes hud-p{50%{opacity:.45}}@media (prefers-reduced-motion:reduce){.hud-b,.hud-p,.hud-s{animation:none}}`
+const SHEEN_MS = 6000
+
+// Every redraw replaces the drawing, so an animation set from the clock keeps its place instead of restarting.
+const lag = (period: number) => `-${((Date.now() % period) / 1000).toFixed(2)}s`
+
+const motion = () => `.hud-b{animation:hud-b 1s steps(2,start) ${lag(1000)} infinite}@keyframes hud-b{to{opacity:.3}}@media (prefers-reduced-motion:reduce){.hud-b,.hud-s{animation:none}}`
 const GLOW = `<filter id="hud-g" x="-20%" y="-400%" width="140%" height="900%"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="hud-rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient><linearGradient id="hud-shine"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
 
 type Tile = {
@@ -332,18 +337,19 @@ const meter = (th: Theme, x: number, y: number, width: number, n: number, gap: n
   const lit = Math.round(clamp01(fill) * n)
   const seg = (i: number) => {
     const color = i >= lit ? th.off : i === lit - 1 ? th.head : lead
-    return `<rect${i === lit - 1 ? ' class="hud-p"' : ''} x="${(x + i * (w + gap)).toFixed(2)}" y="${y}" width="${w.toFixed(2)}" height="3" rx=".6" fill="${color}"/>`
+    return `<rect x="${(x + i * (w + gap)).toFixed(2)}" y="${y}" width="${w.toFixed(2)}" height="3" rx=".6" fill="${color}"/>`
   }
   const all = Array.from({ length: n }, (_, i) => seg(i))
   const segs = `${all.slice(lit).join('')}<g filter="url(#hud-g)">${all.slice(0, lit).join('')}</g>`
-  const tick = marker === undefined ? '' : `<rect x="${(x + clamp01(marker) * width - 0.6).toFixed(2)}" y="${y - 2}" width="1.2" height="7" fill="${th.text}"/>`
-  return segs + tick
+  const mx = x + clamp01(marker ?? 0) * width
+  const notch = marker === undefined ? '' : `<path d="M${(mx - 2).toFixed(2)} ${y + 6.6}h4l-2-2.6z" fill="${th.mute}"/>`
+  return segs + notch
 }
 
 const frame = (th: Theme, width: number, height: number, body: string) => {
   const id = `${th.name}-${width}-${height}`
   const box = `x=".5" y=".5" width="${width - 1}" height="${height - 1}" rx="7"`
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><defs>${GLOW}<radialGradient id="hud-a-${id}" gradientUnits="userSpaceOnUse" cx="0" cy="${height}" r="${Math.min(width * 0.45, 220)}"><stop offset="0" stop-color="${th.accent}" stop-opacity=".2"/><stop offset="1" stop-color="${th.accent}" stop-opacity="0"/></radialGradient><clipPath id="hud-c-${id}"><rect ${box}/></clipPath><style>${MOTION}.hud-s{animation:hud-s-${id} 9s ease-in-out infinite}@keyframes hud-s-${id}{0%,70%{transform:translateX(-90px)}100%{transform:translateX(${width}px)}}</style></defs><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect ${box} fill="${th.ink}" stroke="${th.edge}"/><g clip-path="url(#hud-c-${id})"><rect width="${width}" height="${height}" fill="url(#hud-a-${id})"/><rect class="hud-s" width="90" height="${height}" fill="url(#hud-shine)" transform="translate(-90 0)"/></g><rect ${box} fill="none" stroke="url(#hud-rim)"/>${body}</g></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><defs>${GLOW}<radialGradient id="hud-a-${id}" gradientUnits="userSpaceOnUse" cx="0" cy="${height}" r="${Math.min(width * 0.45, 220)}"><stop offset="0" stop-color="${th.accent}" stop-opacity=".2"/><stop offset="1" stop-color="${th.accent}" stop-opacity="0"/></radialGradient><clipPath id="hud-c-${id}"><rect ${box}/></clipPath><style>${motion()}.hud-s{animation:hud-s-${id} ${SHEEN_MS / 1000}s ease-in-out ${lag(SHEEN_MS)} infinite}@keyframes hud-s-${id}{0%,55%{transform:translateX(-90px)}100%{transform:translateX(${width}px)}}</style></defs><g font-family="${MONO}" font-size="8.5" letter-spacing=".3" style="font-variant-numeric:tabular-nums"><rect ${box} fill="${th.ink}" stroke="${th.edge}"/><g clip-path="url(#hud-c-${id})"><rect width="${width}" height="${height}" fill="url(#hud-a-${id})"/><rect class="hud-s" width="90" height="${height}" fill="url(#hud-shine)" transform="translate(-90 0)"/></g><rect ${box} fill="none" stroke="url(#hud-rim)"/>${body}</g></svg>`
 }
 
 const cell = (th: Theme, w: number, { label, meta, value, unit, fill, marker, isAlarm, isEmpty }: Tile) => {
@@ -353,13 +359,12 @@ const cell = (th: Theme, w: number, { label, meta, value, unit, fill, marker, is
   return `<rect class="${isAlarm ? 'hud-b' : ''}" x="10" y="7.5" width="3" height="3" fill="${isEmpty ? th.off : lead}"/><text x="17" y="11" font-size="7.5" letter-spacing="1.3" fill="${th.mute}">${label}</text><text x="${w - 10}" y="11" font-size="7.5" text-anchor="end" fill="${th.mute}">${meta}</text><text class="${isAlarm ? 'hud-b' : ''}" x="10" y="26" font-size="14" font-weight="600" fill="${ink}">${value}${unit ? `<tspan font-size="8" fill="${th.mute}" dx="1">${unit}</tspan>` : ''}</text>${bar}`
 }
 
-type Readout = { key: string; value: string; note?: string; isAlarm?: boolean; fill?: number; marker?: number }
+type Readout = { key: string; value: string; note?: string; isAlarm?: boolean }
 
 const strip = (th: Theme, items: Readout[]) => {
   const ch = 5.5
   const pad = 10
   const sep = 16
-  const mini = 24
   let x = pad
   const parts = items.map((r, i) => {
     const out: string[] = []
@@ -370,11 +375,6 @@ const strip = (th: Theme, items: Readout[]) => {
     x += (r.key.length + 1) * ch
     out.push(`<text x="${x.toFixed(1)}" y="15.5" fill="${r.isAlarm ? th.alarm : th.text}">${r.value}</text>`)
     x += r.value.length * ch
-    if (r.fill !== undefined) {
-      x += ch
-      out.push(meter(th, x, 10.5, mini, 8, 1, r.fill, r.isAlarm ? th.alarm : th.accent, r.marker))
-      x += mini
-    }
     if (r.note) {
       x += ch
       out.push(`<text x="${x.toFixed(1)}" y="15.5" fill="${th.mute}">${r.note}</text>`)
@@ -423,6 +423,10 @@ const stackBar = (th: Theme, label: string, value: string, parts: Part[], scale:
 }
 
 const ROW_H = 20
+
+// The app gives a mod no press on a drawing, so clear buttons laid over it open and close the card.
+const PRESS_ROW = 20
+const PRESS_COL = 8
 
 const panel = (th: Theme, tiles: Tile[], rows: { width: number; body: string }[]) => {
   const width = Math.max(tiles.length * TILE_W, ...rows.map(r => r.width))
@@ -845,9 +849,9 @@ export const register: Register = on => {
       const marker = reset && total ? (reset - t) / total : undefined
       const value = `${Math.round(w.left)}`
       return {
-        tile: { label, meta, value, unit: '%', fill: w.left / 100, marker, isAlarm: w.isAlarm },
-        alt: `${name}: ${value}% left${reset ? `, resets in ${span(reset - t)}` : ''}`,
-        chip: { key, value: `${value}%`, fill: w.left / 100, marker, note: meta, isAlarm: w.isAlarm },
+        tile: { label, meta, value, unit: '% left', fill: w.left / 100, marker, isAlarm: w.isAlarm },
+        alt: `${name}: ${value}% left${reset ? `, resets in ${span(reset - t)}` : ''}${marker === undefined ? '' : `, even pace would leave ${Math.round(clamp01(marker) * 100)}%`}`,
+        chip: { key, value: `${value}%`, note: meta, isAlarm: w.isAlarm },
       }
     }
 
@@ -867,20 +871,20 @@ export const register: Register = on => {
         alt: call
           ? `Cache ${isWarm ? `warm for ${countdown(cacheLeft)}` : 'cold'}, last read ${compact(call.cacheRead)} tokens${isOn ? ', guard on' : ''}`
           : 'Cache: no reply yet',
-        chip: { key: cacheLabel, value: cacheValue, fill: isWarm ? cacheLeft / ttlMs : undefined, isAlarm: isCooling },
+        chip: { key: cacheLabel, value: cacheValue, isAlarm: isCooling },
       },
       {
         tile: {
           label: 'CTX',
           meta: compact(ctx.tokens),
           value: `${ctxPct}`,
-          unit: '%',
+          unit: '% used',
           fill: ctx.pct / 100,
           isAlarm: isCtxHigh,
           isEmpty: !snap,
         },
         alt: `Context ${ctxPct}% used, ${compact(ctx.tokens)} of ${compact(snap?.contextWindow ?? 0)} tokens`,
-        chip: snap ? { key: 'CTX', value: `${ctxPct}%`, fill: ctx.pct / 100, isAlarm: isCtxHigh } : { key: 'CTX', value: '—' },
+        chip: snap ? { key: 'CTX', value: `${ctxPct}%`, isAlarm: isCtxHigh } : { key: 'CTX', value: '—' },
       },
     ]
 
@@ -917,6 +921,7 @@ export const register: Register = on => {
     const ttlNow = ttlMin === 5 ? '5m' : ttlMin === 60 ? '1h' : 'auto'
     const dock = strip(th, gauges.map(g => g.chip))
     const open = expanded ? panel(th, gauges.map(g => g.tile), rows) : null
+    const drawn = open ?? { width: dock.width, height: 24, source: frame(th, dock.width, 24, dock.body) }
     const alt = [...gauges, ...(open ? rows : [])].map(x => x.alt).join('; ')
     const control = (key: string, label: string, onPress: () => unknown) => (
       <Button key={key} plain dimColor onPress={onPress}>
@@ -930,9 +935,15 @@ export const register: Register = on => {
       <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
         {below}
         <Box flexDirection="column" gap="xs">
-          <Box flexDirection="row" alignItems="center" gap={1}>
-            {open ? <Svg source={open.source} alt={alt} width={open.width} height={open.height} /> : <Svg source={frame(th, dock.width, 24, dock.body)} alt={alt} width={dock.width} height={24} />}
-            {open ? null : control('more', '⋯', onMore)}
+          <Box key="hud" overflow="hidden">
+            <Svg source={drawn.source} alt={alt} width={drawn.width} height={drawn.height} />
+            <Box position="absolute" top={0} left={0} flexDirection="column">
+              {Array.from({ length: Math.max(1, Math.round(drawn.height / PRESS_ROW)) }, (_, i) => (
+                <Button key={i ? `more-${i}` : 'more'} plain onPress={onMore}>
+                  {'\u2800'.repeat(Math.floor(drawn.width / PRESS_COL))}
+                </Button>
+              ))}
+            </Box>
           </Box>
           {open ? (
             <Box flexDirection="row" alignItems="center" gap={2}>
@@ -941,7 +952,6 @@ export const register: Register = on => {
               {ctxPct >= 50 ? control('compact', 'compact', () => void $.session.compact()) : null}
               {control('theme', th.name, () => setTheme($, nextTheme(th.name).name))}
               {control('hide', 'hide', () => update($, isHidden, () => true))}
-              {control('more', 'close ×', onMore)}
             </Box>
           ) : null}
         </Box>
