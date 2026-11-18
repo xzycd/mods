@@ -319,7 +319,7 @@ const SHEEN_MS = 6000
 const lag = (period: number) => `-${((Date.now() % period) / 1000).toFixed(2)}s`
 
 const motion = () => `.hud-b{animation:hud-b 1s steps(2,start) ${lag(1000)} infinite}@keyframes hud-b{to{opacity:.3}}@media (prefers-reduced-motion:reduce){.hud-b,.hud-s{animation:none}}`
-const GLOW = `<filter id="hud-g" x="-20%" y="-400%" width="140%" height="900%"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="hud-rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient><linearGradient id="hud-shine"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
+const GLOW = `<filter id="hud-g" x="-20%" y="-400%" width="140%" height="900%"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="hud-r" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="hud-rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient><linearGradient id="hud-shine"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
 
 type Tile = {
   label: string
@@ -346,6 +346,15 @@ const meter = (th: Theme, x: number, y: number, width: number, n: number, gap: n
   return segs + notch
 }
 
+const RING_R = 5
+
+const ring = (th: Theme, cx: number, cy: number, fill: number, lead: string) => {
+  const f = clamp01(fill)
+  const at = `cx="${cx.toFixed(1)}" cy="${cy}" r="${RING_R}" fill="none" stroke-width="2"`
+  const arc = f > 0 ? `<circle ${at} stroke="${lead}" stroke-linecap="round" pathLength="100" stroke-dasharray="${(f * 100).toFixed(1)} 100" transform="rotate(-90 ${cx.toFixed(1)} ${cy})" filter="url(#hud-r)"/>` : ''
+  return `<circle ${at} stroke="${th.off}"/>${arc}`
+}
+
 const frame = (th: Theme, width: number, height: number, body: string) => {
   const id = `${th.name}-${width}-${height}`
   const box = `x=".5" y=".5" width="${width - 1}" height="${height - 1}" rx="7"`
@@ -359,7 +368,7 @@ const cell = (th: Theme, w: number, { label, meta, value, unit, fill, marker, is
   return `<rect class="${isAlarm ? 'hud-b' : ''}" x="10" y="7.5" width="3" height="3" fill="${isEmpty ? th.off : lead}"/><text x="17" y="11" font-size="7.5" letter-spacing="1.3" fill="${th.mute}">${label}</text><text x="${w - 10}" y="11" font-size="7.5" text-anchor="end" fill="${th.mute}">${meta}</text><text class="${isAlarm ? 'hud-b' : ''}" x="10" y="26" font-size="14" font-weight="600" fill="${ink}">${value}${unit ? `<tspan font-size="8" fill="${th.mute}" dx="1">${unit}</tspan>` : ''}</text>${bar}`
 }
 
-type Readout = { key: string; value: string; note?: string; isAlarm?: boolean }
+type Readout = { key: string; value: string; note?: string; isAlarm?: boolean; fill?: number }
 
 const strip = (th: Theme, items: Readout[]) => {
   const ch = 5.5
@@ -373,6 +382,10 @@ const strip = (th: Theme, items: Readout[]) => {
     }
     out.push(`<text x="${x.toFixed(1)}" y="15.5" fill="${th.mute}">${r.key}</text>`)
     x += (r.key.length + 1) * ch
+    if (r.fill !== undefined) {
+      out.push(ring(th, x + RING_R, 12, r.fill, r.isAlarm ? th.alarm : th.accent))
+      x += RING_R * 2 + ch
+    }
     out.push(`<text x="${x.toFixed(1)}" y="15.5" fill="${r.isAlarm ? th.alarm : th.text}">${r.value}</text>`)
     x += r.value.length * ch
     if (r.note) {
@@ -851,7 +864,7 @@ export const register: Register = on => {
       return {
         tile: { label, meta, value, unit: '% left', fill: w.left / 100, marker, isAlarm: w.isAlarm },
         alt: `${name}: ${value}% left${reset ? `, resets in ${span(reset - t)}` : ''}${marker === undefined ? '' : `, even pace would leave ${Math.round(clamp01(marker) * 100)}%`}`,
-        chip: { key, value: `${value}%`, note: meta, isAlarm: w.isAlarm },
+        chip: { key, value: `${value}%`, fill: w.left / 100, note: meta, isAlarm: w.isAlarm },
       }
     }
 
@@ -871,7 +884,7 @@ export const register: Register = on => {
         alt: call
           ? `Cache ${isWarm ? `warm for ${countdown(cacheLeft)}` : 'cold'}, last read ${compact(call.cacheRead)} tokens${isOn ? ', guard on' : ''}`
           : 'Cache: no reply yet',
-        chip: { key: cacheLabel, value: cacheValue, isAlarm: isCooling },
+        chip: { key: cacheLabel, value: cacheValue, fill: isWarm ? cacheLeft / ttlMs : undefined, isAlarm: isCooling },
       },
       {
         tile: {
@@ -884,7 +897,7 @@ export const register: Register = on => {
           isEmpty: !snap,
         },
         alt: `Context ${ctxPct}% used, ${compact(ctx.tokens)} of ${compact(snap?.contextWindow ?? 0)} tokens`,
-        chip: snap ? { key: 'CTX', value: `${ctxPct}%`, isAlarm: isCtxHigh } : { key: 'CTX', value: '—' },
+        chip: snap ? { key: 'CTX', value: `${ctxPct}%`, fill: ctx.pct / 100, isAlarm: isCtxHigh } : { key: 'CTX', value: '—' },
       },
     ]
 
