@@ -130,7 +130,7 @@ const sumSession = (all: Tallies, id: string) =>
   id
     ? Object.entries(all)
         .filter(([path]) => path.endsWith(`/${id}.jsonl`) || path.includes(`/${id}/`))
-        .reduce((a, [, f]) => plus(a, f.t), ZERO)
+        .reduce((a, [, f]) => plus(a, minus(f.t, f.dup ?? ZERO)), ZERO)
     : ZERO
 
 const lastReplyAt = (all: Tallies, id: string) => {
@@ -249,7 +249,9 @@ const scan = async ($: EngineInterface) => {
       try {
         await tallyRange($, f.path, from, f.size - from, k)
         // A resumed or forked session starts its transcript with a copy of the one it came from.
-        const twins = grew?.firstId || !k.firstId ? [] : Object.entries(kept).filter(([p, x]) => p !== f.path && x.firstId === k.firstId)
+        // Only the copy subtracts what it shares; a rescanned original keeps counting it.
+        const isCopy = !isCurrent || Boolean(was.dup)
+        const twins = grew?.firstId || !k.firstId || !isCopy ? [] : Object.entries(kept).filter(([p, x]) => p !== f.path && x.firstId === k.firstId)
         if (twins.length) {
           const shared = new Set<string>()
           for (const [p, x] of twins) {
@@ -717,7 +719,7 @@ export const register: Register = on => {
     }
     if (word === 'status') {
       const snap = await read($, snapshot)
-      const call = await read($, lastCall)
+      const at = await coldFrom($)
       const t = Date.now()
       const limit = (name: string, kind: Limit['kind']) => {
         const l = current(snap?.limits.find(x => x.kind === kind), t)
@@ -725,12 +727,12 @@ export const register: Register = on => {
         const left = Math.round(Math.max(0, 100 - l.percentUsed))
         return `${name}: ${left}% left${l.resetsAt ? `, resets in ${span(Date.parse(l.resetsAt) - t)}` : ''}`
       }
-      const cacheLeft = call ? call.at + (await ttlMsOf($)) - t : 0
+      const cacheLeft = at ? at + (await ttlMsOf($)) - t : 0
       return {
         text: [
           limit('5h', 'five_hour'),
           limit('Week', 'seven_day'),
-          `Cache: ${call ? (cacheLeft > 0 ? `warm for ${countdown(cacheLeft)}` : 'cold') : '—'}`,
+          `Cache: ${at ? (cacheLeft > 0 ? `warm for ${countdown(cacheLeft)}` : 'cold') : '—'}`,
           `Context: ${Math.round(contextOf(snap).pct)}%`,
         ].join('\n'),
       }
